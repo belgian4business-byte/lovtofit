@@ -18,5 +18,77 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  goals               Goal[]
+  trainingPreferences TrainingPreferences?
+
   @@map("users")
+}
+
+enum GoalType {
+  LOSE_WEIGHT
+  BUILD_MUSCLE
+  GET_STRONGER
+  IMPROVE_CONDITION
+  GET_FIT
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+}
+
+// Doelen worden nooit overschreven: bij een doelwijziging blijft het oude
+// doel bestaan met status PAUSED (zie CLAUDE.md, Datamodel-regels).
+model Goal {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  type      GoalType
+  status    GoalStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  pausedAt  DateTime?
+
+  @@map("goals")
+}
+
+enum TrainingLocation {
+  HOME
+  GYM
+  BOTH
+}
+
+enum Equipment {
+  NONE
+  DUMBBELLS
+  RESISTANCE_BANDS
+  KETTLEBELL
+  FULL_GYM
+}
+
+enum SessionDuration {
+  MIN_15
+  MIN_30
+  MIN_45
+  MIN_60_PLUS
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model TrainingPreferences {
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  user             User             @relation(fields: [userId], references: [id])
+  location         TrainingLocation
+  equipment        Equipment[]
+  sessionDuration  SessionDuration
+  weeklyFrequency  Int
+  level            ExperienceLevel
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@map("training_preferences")
 }

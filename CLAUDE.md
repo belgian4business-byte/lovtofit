@@ -62,13 +62,62 @@ Geen aparte "Premium"-tab; premium tonen via vergrendelde teasers binnen de tabs
 - Bouw nooit twee dingen tegelijk.
 - Begin engines simpel; maak ze pas later slim (geen volledige beslisladder op dag 1).
 
-## Huidige fase: FASE 0 — Walking skeleton
+## Afgeronde fases
 
-Doel: bewijs dat de hele keten werkt met bijna niks erin.
-1. Projectstructuur (backend + frontend) + Git.
-2. PostgreSQL lokaal (Docker).
-3. NestJS-backend + Prisma verbonden + 1 migratie.
-4. Eén endpoint `GET /health` → `{ "status": "ok" }`.
-5. Flutter-app met één scherm dat `/health` aanroept en "verbonden" toont.
+### FASE 0 — Walking skeleton
+Bewezen: het Flutter-scherm toont data uit onze eigen backend + database
+(PostgreSQL in Docker, NestJS + Prisma, `GET /health`).
 
-Klaar wanneer: het Flutter-scherm data uit onze eigen backend + database toont.
+### FASE 1 — Account & Auth (basis)
+Doel: een gebruiker kan een account aanmaken, inloggen en de onboarding-flow
+doorlopen. Wachtwoorden worden nooit leesbaar opgeslagen.
+
+**Stap 1: Registreren met e-mail/wachtwoord**
+1. Prisma: `User`-model met `email` (uniek) en `passwordHash`.
+2. Backend: `POST /auth/register` — valideert e-mail + wachtwoord (min. 8
+   tekens), hasht het wachtwoord met bcrypt (nooit plain text opslaan of
+   loggen), maakt de gebruiker aan. Geen sessie/token in deze stap.
+3. Flutter: registratiescherm met e-mail- en wachtwoordveld, één knop
+   "Account aanmaken", duidelijke succes-/foutmelding.
+
+**Stap 2: Inloggen**
+1. Backend: `POST /auth/login` — controleert e-mail/wachtwoord tegen de
+   opgeslagen hash (bcrypt.compare), geeft bij succes een JWT-token
+   (`@nestjs/jwt`, geheim in `JWT_SECRET`) + gebruiker terug. Onbekend
+   e-mailadres en fout wachtwoord geven dezelfde generieke 401-foutmelding
+   (geen accountgegevens lekken).
+2. Flutter: inlogscherm (het startscherm) met e-mail/wachtwoord, link naar
+   het registratiescherm en vice versa. Bij succes: eenvoudig
+   "ingelogd als"-scherm met uitlog-knop. Token wordt nog niet lokaal
+   opgeslagen (geen sessiepersistentie over app-herstarts — dat is een latere
+   stap).
+
+**Stap 3: Onboarding-flow**
+Bron: "LOVTOFIT Blueprint v0.1-v0.4.docx", sectie 3 "EERSTE START — ONBOARDING".
+Eén vraag per scherm, in deze volgorde:
+1. Doel (meerdere keuzes mogelijk): Afvallen · Spieren opbouwen · Sterker
+   worden · Conditie verbeteren · Fit worden.
+2. Locatie (één keuze): 🏠 Thuis · 🏋️ Fitness · 🔄 Beide.
+3. Apparatuur (meerdere keuzes): Geen apparatuur · Dumbbells · Elastieken ·
+   Kettlebell · Volledige fitnessapparatuur.
+4. Tijd (één keuze): 15 min · 30 min · 45 min · 60+ min.
+5. Frequentie (één keuze): 2×–6× per week.
+6. Niveau (één keuze): Beginner · Gemiddeld · Gevorderd.
+
+Backend: `POST /onboarding` (achter JWT-auth). Doelen volgen de
+datamodel-regel: bij een doelwijziging krijgt het oude actieve doel
+`PAUSED` i.p.v. verwijderd te worden; nieuwe geselecteerde doelen worden
+`ACTIVE`. Overige voorkeuren (locatie/apparatuur/tijd/frequentie/niveau)
+staan in `TrainingPreferences` en worden gewoon bijgewerkt (geen historie
+nodig). `POST /auth/login` geeft nu ook `hasCompletedOnboarding` terug zodat
+de app na login weet of de flow al doorlopen is.
+
+Bewezen: account aanmaken, inloggen, de onboarding-flow doorlopen (één vraag
+per scherm) en daarna opnieuw inloggen (zonder de flow opnieuw te zien) werkt
+allemaal via de app. In de database staat alleen de wachtwoord-hash, en een
+doelwijziging overschrijft nooit het oude doel.
+
+## Huidige fase
+
+Nog te bepalen — lever de volgende blueprint-sectie aan zodra je klaar bent
+om verder te gaan.
