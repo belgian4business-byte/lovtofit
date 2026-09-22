@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'theme/app_theme.dart';
 import 'workout_models.dart';
 
 enum _Phase { logging, resting, exerciseComplete, workoutComplete }
@@ -264,7 +265,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        FilledButton(onPressed: _completeSet, child: const Text('SET KLAAR')),
+        AppGradientButton(onPressed: _completeSet, child: const Text('SET KLAAR')),
       ],
     );
   }
@@ -298,7 +299,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        FilledButton(
+        AppGradientButton(
           onPressed: _goToNextExercise,
           child: Text(isLastExercise ? 'Training afronden' : 'Volgende oefening →'),
         ),
@@ -340,7 +341,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           OutlinedButton(onPressed: _saveSession, child: const Text('Opnieuw proberen')),
         ],
         const SizedBox(height: 24),
-        FilledButton(
+        AppGradientButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Terug naar Home'),
         ),

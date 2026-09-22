@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'progress_screen.dart';
+import 'theme/app_theme.dart';
 import 'workout_models.dart';
 import 'workout_screen.dart';
 
@@ -169,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        FilledButton(onPressed: _startTraining, child: const Text('START TRAINING')),
+        AppGradientButton(onPressed: _startTraining, child: const Text('START TRAINING')),
       ],
     );
   }

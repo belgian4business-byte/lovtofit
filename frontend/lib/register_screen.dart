@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'theme/app_theme.dart';
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -103,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        FilledButton(
+        AppGradientButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Ga naar inloggen'),
         ),
@@ -157,13 +159,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ],
           const SizedBox(height: 24),
-          FilledButton(
+          AppGradientButton(
             onPressed: _isSubmitting ? null : _submit,
             child: _isSubmitting
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('Account aanmaken'),
           ),

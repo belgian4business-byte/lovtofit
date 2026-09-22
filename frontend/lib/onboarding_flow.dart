@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'home_screen.dart';
+import 'theme/app_theme.dart';
 
 /// Eén onboardingvraag per scherm, in de volgorde uit de blueprint:
 /// doel → locatie → apparatuur → tijd → frequentie → niveau.
@@ -197,13 +198,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 ],
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: AppGradientButton(
                     onPressed: (_canProceed && !_isSubmitting) ? _goNext : null,
                     child: _isSubmitting
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : Text(_step < _stepCount - 1 ? 'Volgende' : 'Klaar'),
                   ),
@@ -299,8 +300,13 @@ class _SingleChoiceStep<T> extends StatelessWidget {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 backgroundColor: selected == entry.value
-                    ? Theme.of(context).colorScheme.primaryContainer
+                    ? AppColors.highlight.withValues(alpha: 0.16)
                     : null,
+                side: BorderSide(
+                  color: selected == entry.value
+                      ? AppColors.highlight
+                      : AppColors.textSecondary.withValues(alpha: 0.4),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => onSelect(entry.value),
@@ -352,8 +358,13 @@ class _MultiChoiceStep extends StatelessWidget {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 backgroundColor: selected.contains(entry.value)
-                    ? Theme.of(context).colorScheme.primaryContainer
+                    ? AppColors.highlight.withValues(alpha: 0.16)
                     : null,
+                side: BorderSide(
+                  color: selected.contains(entry.value)
+                      ? AppColors.highlight
+                      : AppColors.textSecondary.withValues(alpha: 0.4),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => onToggle(entry.value),

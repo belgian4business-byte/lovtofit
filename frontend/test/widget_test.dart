@@ -6,6 +6,7 @@ import 'package:lovtofit_app/main.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
 import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
+import 'package:lovtofit_app/theme/app_theme.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
 
@@ -19,13 +20,13 @@ void main() {
       expect(find.text('Inloggen'), findsWidgets);
       expect(find.widgetWithText(TextFormField, 'E-mailadres'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, 'Wachtwoord'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Inloggen'), findsOneWidget);
+      expect(find.widgetWithText(AppGradientButton, 'Inloggen'), findsOneWidget);
     });
 
     testWidgets('shows validation errors for empty submission', (WidgetTester tester) async {
       await tester.pumpWidget(const LovtofitApp());
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Inloggen'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Inloggen'));
       await tester.pump();
 
       expect(find.text('Vul een geldig e-mailadres in'), findsOneWidget);
@@ -46,7 +47,7 @@ void main() {
     testWidgets('shows validation errors for empty submission', (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Account aanmaken'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Account aanmaken'));
       await tester.pump();
 
       expect(find.text('Vul een geldig e-mailadres in'), findsOneWidget);
@@ -65,12 +66,12 @@ void main() {
       );
 
       expect(find.text('Wat wil je bereiken?'), findsOneWidget);
-      final nextButton = find.widgetWithText(FilledButton, 'Volgende');
-      expect(tester.widget<FilledButton>(nextButton).onPressed, isNull);
+      final nextButton = find.widgetWithText(AppGradientButton, 'Volgende');
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNull);
 
       await tester.tap(find.text('Afvallen'));
       await tester.pump();
-      expect(tester.widget<FilledButton>(nextButton).onPressed, isNotNull);
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNotNull);
 
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
@@ -88,7 +89,7 @@ void main() {
 
       await tester.tap(find.text('Afvallen'));
       await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Volgende'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Volgende'));
       await tester.pumpAndSettle();
       expect(find.text('Waar train je meestal?'), findsOneWidget);
 
@@ -147,7 +148,7 @@ void main() {
       expect(find.text('Set 1 van 2'), findsOneWidget);
       expect(find.text('Gewicht (kg)'), findsNothing); // bodyweight: geen gewicht
 
-      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
       await tester.pump();
 
       expect(find.text('Rust'), findsOneWidget);
@@ -164,30 +165,30 @@ void main() {
       await tester.pumpWidget(buildWorkoutScreen());
 
       // Oefening 1: 2 sets afronden.
-      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
       await tester.pump();
       await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
       await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
       await tester.pump();
       await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
       await tester.pump();
 
       expect(find.text('Volgende oefening →'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Volgende oefening →'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Volgende oefening →'));
       await tester.pump();
 
       expect(find.text('Oefening 2 van 2'), findsOneWidget);
       expect(find.text('Gewicht (kg)'), findsOneWidget); // dumbbell: wel gewicht
 
       // Laatste oefening, laatste set → "Training afronden".
-      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
       await tester.pump();
       await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
       await tester.pump();
 
       expect(find.text('Training afronden'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Training afronden'));
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Training afronden'));
       await tester.pump();
 
       expect(find.text('Training voltooid! 💪'), findsOneWidget);
