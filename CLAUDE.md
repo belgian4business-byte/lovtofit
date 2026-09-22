@@ -117,6 +117,47 @@ per scherm) en daarna opnieuw inloggen (zonder de flow opnieuw te zien) werkt
 allemaal via de app. In de database staat alleen de wachtwoord-hash, en een
 doelwijziging overschrijft nooit het oude doel.
 
+### FASE 2 — De kern-loop
+
+Doel: gebruiker krijgt een training van vandaag, logt sets, rondt af, en
+ziet het terug. Logica bewust simpel.
+1. (klaar) Kleine oefeningen-set geseed (20, `src/generated/prisma`
+   `Exercise`-model: movement pattern, apparatuur, niveau).
+2. (klaar) Eén beginner full-body template ("Beginner Full Body":
+   squat → push → pull → hinge → core, als regels, niet vaste oefeningen).
+3. (klaar) Decision Engine v1 — `DecisionEngineService.getTodaysWorkout()`,
+   via `GET /workouts/today` (JWT-auth). Kiest het template dat bij het
+   niveau past (nu nog triviaal: er is er maar één), en vult elke slot met
+   de eerste oefening die past bij de apparatuur van de gebruiker (bodyweight
+   altijd toegestaan; dumbbells/barbell/machine-cable afhankelijk van
+   onboarding-apparatuur) en bij voorkeur het exacte niveau. Bewust géén
+   score-/progressie-/hersteltellogica — dat komt pas als de engine
+   "slimmer" gemaakt wordt.
+4. (klaar) Home-scherm toont "Training van vandaag" (template + oefeningen
+   uit `GET /workouts/today`) + Start-knop. Nog geen tabbalk/Progress/Coach
+   — die komen pas als die schermen echt bestaan.
+5. (klaar) Workout-scherm: een set afvinken kost één tik ("SET KLAAR"),
+   daarna automatisch een rusttimer (45 sec, overslaan kan), en na de
+   laatste set van een oefening één tik naar de volgende ("Volgende
+   oefening →" / "Training afronden"). `targetSets`/`targetReps` (vast op
+   3×12, MVP-simplificatie) komen nu mee in `GET /workouts/today`.
+   Loggen gebeurt nog alleen lokaal in de app — nog niet opgeslagen.
+6. (klaar) Sessie opslaan: `WorkoutSession` + `LoggedSet`-modellen
+   (gekoppeld aan user/template/exercise). `POST /workouts/sessions`
+   (JWT-auth) slaat de hele sessie in één keer op zodra de training is
+   afgerond — geen tussentijdse "gestart maar niet afgerond"-status.
+   Feedback (moeilijkheidsgraad/pijn) wordt hier nog niet gevraagd; als dat
+   gebouwd wordt, geldt de vaste `difficulty`-enum uit CLAUDE.md.
+7. (klaar) Basis Progress-scherm: `GET /workouts/sessions` (JWT-auth) geeft
+   de sessies van de ingelogde gebruiker terug (nieuwste eerst, met
+   templatenaam en oefeningnamen i.p.v. losse ids). Flutter-scherm toont per
+   sessie datum, template en oefeningen; leeg-status voor nieuwe gebruikers.
+   Bereikbaar via een icoon in de Home-AppBar — bewust nog geen volledige
+   5-tabbalk, want Train/Nutrition/Coach bestaan nog niet.
+
+Bewezen: openen → training van vandaag → loggen → afronden → terugzien in
+Progress werkt allemaal via de app.
+
 ## Huidige fase
 
 Nog te bepalen — lever de volgende blueprint-sectie aan zodra je klaar bent

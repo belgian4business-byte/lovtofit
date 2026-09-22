@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'logged_in_screen.dart';
+import 'home_screen.dart';
 
 /// Eén onboardingvraag per scherm, in de volgorde uit de blueprint:
 /// doel → locatie → apparatuur → tijd → frequentie → niveau.
@@ -144,7 +144,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (response.statusCode == 201 && mounted) {
         Navigator.of(
           context,
-        ).pushReplacement(MaterialPageRoute(builder: (_) => LoggedInScreen(email: widget.email)));
+        ).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(accessToken: widget.accessToken, email: widget.email),
+          ),
+        );
         return;
       }
 

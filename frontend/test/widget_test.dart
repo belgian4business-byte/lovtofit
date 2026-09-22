@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:lovtofit_app/home_screen.dart';
 import 'package:lovtofit_app/main.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
+import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
+import 'package:lovtofit_app/workout_models.dart';
+import 'package:lovtofit_app/workout_screen.dart';
 
 void main() {
   group('LoginScreen', () {
@@ -91,6 +95,121 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
       expect(find.text('Wat wil je bereiken?'), findsOneWidget);
+    });
+  });
+
+  group('HomeScreen', () {
+    testWidgets('shows a loading state while fetching today\'s workout', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(accessToken: 'test-token', email: 'test@example.com'),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+  });
+
+  group('WorkoutScreen', () {
+    const exercises = [
+      WorkoutExercise(
+        id: 'exercise-1',
+        name: 'Bodyweight Squat',
+        equipment: 'BODYWEIGHT',
+        targetSets: 2,
+        targetReps: 5,
+      ),
+      WorkoutExercise(
+        id: 'exercise-2',
+        name: 'Goblet Squat',
+        equipment: 'DUMBBELL',
+        targetSets: 1,
+        targetReps: 8,
+      ),
+    ];
+
+    Widget buildWorkoutScreen() => const MaterialApp(
+      home: WorkoutScreen(
+        accessToken: 'test-token',
+        templateId: 'template-1',
+        exercises: exercises,
+      ),
+    );
+
+    testWidgets('logt een set in één tik, rust daarna, en gaat dan naar de volgende set', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWorkoutScreen());
+
+      expect(find.text('Oefening 1 van 2'), findsOneWidget);
+      expect(find.text('Set 1 van 2'), findsOneWidget);
+      expect(find.text('Gewicht (kg)'), findsNothing); // bodyweight: geen gewicht
+
+      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.pump();
+
+      expect(find.text('Rust'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+
+      expect(find.text('Set 2 van 2'), findsOneWidget);
+    });
+
+    testWidgets('gaat na de laatste set van een oefening naar de volgende oefening', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWorkoutScreen());
+
+      // Oefening 1: 2 sets afronden.
+      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+
+      expect(find.text('Volgende oefening →'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Volgende oefening →'));
+      await tester.pump();
+
+      expect(find.text('Oefening 2 van 2'), findsOneWidget);
+      expect(find.text('Gewicht (kg)'), findsOneWidget); // dumbbell: wel gewicht
+
+      // Laatste oefening, laatste set → "Training afronden".
+      await tester.tap(find.widgetWithText(FilledButton, 'SET KLAAR'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+
+      expect(find.text('Training afronden'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Training afronden'));
+      await tester.pump();
+
+      expect(find.text('Training voltooid! 💪'), findsOneWidget);
+      expect(find.text('3 sets gelogd'), findsOneWidget);
+
+      // Laat de (in deze test onbereikbare) opslag-call afronden zodat er
+      // geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('ProgressScreen', () {
+    testWidgets('shows a loading state while fetching sessions', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: ProgressScreen(accessToken: 'test-token')),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Laat de (in deze test onbereikbare) fetch-call afronden zodat er
+      // geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
     });
   });
 }

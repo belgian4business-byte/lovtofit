@@ -20,6 +20,7 @@ model User {
 
   goals               Goal[]
   trainingPreferences TrainingPreferences?
+  workoutSessions     WorkoutSession[]
 
   @@map("users")
 }
@@ -91,4 +92,109 @@ model TrainingPreferences {
   updatedAt        DateTime         @updatedAt
 
   @@map("training_preferences")
+}
+
+// Zie blueprint v0.5 (Exercise Library): de 7 hoofdgroepen + mobiliteit/herstel.
+enum MuscleGroup {
+  CHEST
+  BACK
+  SHOULDERS
+  ARMS
+  LEGS_GLUTES
+  CORE
+  CARDIO
+  MOBILITY
+}
+
+// Movement Pattern is belangrijker dan alleen spiergroep: de Training Engine
+// vraagt later "geef me een squat + push + pull", niet "drie beenoefeningen"
+// (blueprint v0.5, sectie 10).
+enum MovementPattern {
+  PUSH
+  PULL
+  SQUAT
+  HINGE
+  LUNGE
+  CARRY
+  CORE_STABILITY
+  ROTATION
+  CARDIO
+  MOBILITY
+}
+
+enum ExerciseEquipment {
+  BODYWEIGHT
+  DUMBBELL
+  BARBELL
+  MACHINE_CABLE
+}
+
+model Exercise {
+  id              String            @id @default(uuid())
+  name            String            @unique
+  muscleGroup     MuscleGroup
+  movementPattern MovementPattern
+  equipment       ExerciseEquipment
+  level           ExperienceLevel
+  createdAt       DateTime          @default(now())
+
+  loggedSets LoggedSet[]
+
+  @@map("exercises")
+}
+
+// Templates zijn regels, geen vaste oefeningen: een template zegt bv.
+// "squat + push + pull + hinge + core", en de (latere) Decision Engine
+// vult elke slot in met een passende oefening uit de Exercise Library
+// (blueprint v0.6, sectie 15 "TEMPLATE = REGELS, NIET OEFENINGEN").
+model WorkoutTemplate {
+  id        String         @id @default(uuid())
+  name      String         @unique
+  level     ExperienceLevel
+  createdAt DateTime       @default(now())
+
+  slots    TemplateSlot[]
+  sessions WorkoutSession[]
+
+  @@map("workout_templates")
+}
+
+model TemplateSlot {
+  id              String          @id @default(uuid())
+  templateId      String
+  template        WorkoutTemplate @relation(fields: [templateId], references: [id])
+  order           Int
+  movementPattern MovementPattern
+
+  @@unique([templateId, order])
+  @@map("template_slots")
+}
+
+// Eén rij per afgeronde training. We slaan de sessie in één keer op zodra
+// de gebruiker "afronden" tikt (CLAUDE.md Fase 2, stap 6) — bewust simpel,
+// geen tussentijdse "gestart maar niet afgerond"-status.
+model WorkoutSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  templateId  String
+  template    WorkoutTemplate @relation(fields: [templateId], references: [id])
+  completedAt DateTime @default(now())
+
+  loggedSets LoggedSet[]
+
+  @@map("workout_sessions")
+}
+
+model LoggedSet {
+  id         String         @id @default(uuid())
+  sessionId  String
+  session    WorkoutSession @relation(fields: [sessionId], references: [id])
+  exerciseId String
+  exercise   Exercise       @relation(fields: [exerciseId], references: [id])
+  setNumber  Int
+  reps       Int
+  weightKg   Float?
+
+  @@map("logged_sets")
 }
