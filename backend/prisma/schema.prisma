@@ -18,9 +18,10 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  goals               Goal[]
-  trainingPreferences TrainingPreferences?
-  workoutSessions     WorkoutSession[]
+  goals                Goal[]
+  trainingPreferences  TrainingPreferences?
+  workoutSessions      WorkoutSession[]
+  exerciseProgressions ExerciseProgression[]
 
   @@map("users")
 }
@@ -138,7 +139,9 @@ model Exercise {
   level           ExperienceLevel
   createdAt       DateTime          @default(now())
 
-  loggedSets LoggedSet[]
+  loggedSets   LoggedSet[]
+  feedback     ExerciseFeedback[]
+  progressions ExerciseProgression[]
 
   @@map("exercises")
 }
@@ -181,7 +184,9 @@ model WorkoutSession {
   template    WorkoutTemplate @relation(fields: [templateId], references: [id])
   completedAt DateTime @default(now())
 
-  loggedSets LoggedSet[]
+  loggedSets   LoggedSet[]
+  feedback     ExerciseFeedback[]
+  progressions ExerciseProgression[]
 
   @@map("workout_sessions")
 }
@@ -197,4 +202,58 @@ model LoggedSet {
   weightKg   Float?
 
   @@map("logged_sets")
+}
+
+// UI-labels: EASY=Makkelijk, GOOD=Goed, HARD=Zwaar, TOO_HARD=Te zwaar
+// (CLAUDE.md, Datamodel-regels). "Zwaar" (HARD/TOO_HARD) is nadrukkelijk
+// iets anders dan `discomfort` (ongemak/pijn) — dat is een apart signaal
+// met voorrang, geen zwaarte-niveau (blueprint v2.12, sectie 2.12.7).
+enum Difficulty {
+  EASY
+  GOOD
+  HARD
+  TOO_HARD
+}
+
+// Eén rij per oefening per sessie (niet per set) — de gebruiker geeft
+// feedback nadat hij alle sets van een oefening heeft afgerond.
+model ExerciseFeedback {
+  id         String         @id @default(uuid())
+  sessionId  String
+  session    WorkoutSession @relation(fields: [sessionId], references: [id])
+  exerciseId String
+  exercise   Exercise       @relation(fields: [exerciseId], references: [id])
+  difficulty Difficulty
+  discomfort Boolean
+  createdAt  DateTime       @default(now())
+
+  @@map("exercise_feedback")
+}
+
+// Vijf beslissingen uit blueprint v2.14.1 — de Progression Engine bepaalt
+// dit, de (latere) Decision Engine voert het pas echt uit door een andere
+// oefening/belasting te kiezen.
+enum ProgressionDecision {
+  KEEP
+  INCREASE
+  DECREASE
+  REPLACE
+  ADJUST
+}
+
+// Eén rij per oefening per sessie: het geheugen van de Progression Engine,
+// nodig om trends (3x op rij te zwaar/makkelijk) te herkennen zonder op
+// één losse training te reageren (blueprint v0.8.6 / v2.14.3).
+model ExerciseProgression {
+  id         String              @id @default(uuid())
+  userId     String
+  user       User                @relation(fields: [userId], references: [id])
+  exerciseId String
+  exercise   Exercise            @relation(fields: [exerciseId], references: [id])
+  sessionId  String
+  session    WorkoutSession      @relation(fields: [sessionId], references: [id])
+  decision   ProgressionDecision
+  createdAt  DateTime            @default(now())
+
+  @@map("exercise_progressions")
 }

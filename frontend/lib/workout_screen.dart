@@ -25,6 +25,28 @@ class LoggedSet {
   final double? weightKg;
 }
 
+class ExerciseFeedbackEntry {
+  const ExerciseFeedbackEntry({
+    required this.exerciseId,
+    required this.difficulty,
+    required this.discomfort,
+  });
+
+  final String exerciseId;
+  final String difficulty;
+  final bool discomfort;
+}
+
+// UI-labels volgens CLAUDE.md: Makkelijk/Goed/Zwaar/Te zwaar. "Zwaar" is
+// nadrukkelijk iets anders dan ongemak/pijn — dat is een apart signaal
+// (blueprint v2.12, sectie 2.12.7).
+const _difficultyOptions = {
+  '😊 Makkelijk': 'EASY',
+  '🙂 Goed': 'GOOD',
+  '😐 Zwaar': 'HARD',
+  '😣 Te zwaar': 'TOO_HARD',
+};
+
 /// Workout-scherm (CLAUDE.md Fase 2, stap 5+6): een set afvinken kost één
 /// tik ("SET KLAAR"), daarna automatisch een rusttimer, en na de laatste
 /// set van een oefening één tik naar de volgende. Zodra de training is
@@ -62,7 +84,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isSaved = false;
   String? _saveError;
 
+  String? _difficulty;
+  bool? _discomfort;
+
   final List<LoggedSet> _log = [];
+  final List<ExerciseFeedbackEntry> _feedbackLog = [];
 
   WorkoutExercise get _exercise => widget.exercises[_exerciseIndex];
 
@@ -129,12 +155,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
   }
 
-  void _goToNextExercise() {
+  void _submitFeedbackAndContinue() {
+    _feedbackLog.add(
+      ExerciseFeedbackEntry(
+        exerciseId: _exercise.id,
+        difficulty: _difficulty!,
+        discomfort: _discomfort!,
+      ),
+    );
+
     if (_exerciseIndex < widget.exercises.length - 1) {
       setState(() {
         _exerciseIndex++;
         _setNumber = 1;
         _phase = _Phase.logging;
+        _difficulty = null;
+        _discomfort = null;
         _resetSetDefaults();
       });
     } else {
@@ -169,6 +205,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     },
                   )
                   .toList(),
+              'feedback': _feedbackLog
+                  .map(
+                    (entry) => {
+                      'exerciseId': entry.exerciseId,
+                      'difficulty': entry.difficulty,
+                      'discomfort': entry.discomfort,
+                    },
+                  )
+                  .toList(),
             }),
           )
           .timeout(const Duration(seconds: 5));
@@ -192,7 +237,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
-          child: Padding(padding: const EdgeInsets.all(24), child: _buildPhase(context)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(child: _buildPhase(context)),
+          ),
         ),
       ),
     );
@@ -288,8 +336,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Widget _buildExerciseComplete(BuildContext context) {
     final isLastExercise = _exerciseIndex == widget.exercises.length - 1;
+    final canContinue = _difficulty != null && _discomfort != null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Icon(Icons.check_circle, color: Colors.green, size: 64),
         const SizedBox(height: 16),
@@ -299,8 +350,77 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
+        Text(
+          'Hoe voelde deze oefening?',
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        for (final entry in _difficultyOptions.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: _difficulty == entry.value
+                    ? AppColors.highlight.withValues(alpha: 0.16)
+                    : null,
+                side: BorderSide(
+                  color: _difficulty == entry.value
+                      ? AppColors.highlight
+                      : AppColors.textSecondary.withValues(alpha: 0.4),
+                ),
+              ),
+              onPressed: () => setState(() => _difficulty = entry.value),
+              child: Text(entry.key),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Text(
+          'Had je ongemak of pijn?',
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: _discomfort == false
+                      ? AppColors.highlight.withValues(alpha: 0.16)
+                      : null,
+                  side: BorderSide(
+                    color: _discomfort == false
+                        ? AppColors.highlight
+                        : AppColors.textSecondary.withValues(alpha: 0.4),
+                  ),
+                ),
+                onPressed: () => setState(() => _discomfort = false),
+                child: const Text('Nee'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: _discomfort == true
+                      ? AppColors.highlight.withValues(alpha: 0.16)
+                      : null,
+                  side: BorderSide(
+                    color: _discomfort == true
+                        ? AppColors.highlight
+                        : AppColors.textSecondary.withValues(alpha: 0.4),
+                  ),
+                ),
+                onPressed: () => setState(() => _discomfort = true),
+                child: const Text('Ja'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
         AppGradientButton(
-          onPressed: _goToNextExercise,
+          onPressed: canContinue ? _submitFeedbackAndContinue : null,
           child: Text(isLastExercise ? 'Training afronden' : 'Volgende oefening →'),
         ),
       ],

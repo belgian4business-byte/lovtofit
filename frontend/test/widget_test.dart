@@ -174,8 +174,21 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
       await tester.pump();
 
+      // Feedback is verplicht voordat de knop bruikbaar wordt.
       expect(find.text('Volgende oefening →'), findsOneWidget);
-      await tester.tap(find.widgetWithText(AppGradientButton, 'Volgende oefening →'));
+      var nextButton = find.widgetWithText(AppGradientButton, 'Volgende oefening →');
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNull);
+
+      await tester.ensureVisible(find.text('🙂 Goed'));
+      await tester.tap(find.text('🙂 Goed'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Nee'));
+      await tester.tap(find.text('Nee'));
+      await tester.pump();
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNotNull);
+
+      await tester.ensureVisible(nextButton);
+      await tester.tap(nextButton);
       await tester.pump();
 
       expect(find.text('Oefening 2 van 2'), findsOneWidget);
@@ -187,8 +200,18 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
       await tester.pump();
 
+      // Ook ongemak/pijn = "Ja" moet de knop vrijgeven.
       expect(find.text('Training afronden'), findsOneWidget);
-      await tester.tap(find.widgetWithText(AppGradientButton, 'Training afronden'));
+      await tester.ensureVisible(find.text('😣 Te zwaar'));
+      await tester.tap(find.text('😣 Te zwaar'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Ja'));
+      await tester.tap(find.text('Ja'));
+      await tester.pump();
+
+      final finishButton = find.widgetWithText(AppGradientButton, 'Training afronden');
+      await tester.ensureVisible(finishButton);
+      await tester.tap(finishButton);
       await tester.pump();
 
       expect(find.text('Training voltooid! 💪'), findsOneWidget);

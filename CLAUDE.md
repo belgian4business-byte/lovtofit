@@ -158,7 +158,153 @@ ziet het terug. Logica bewust simpel.
 Bewezen: openen → training van vandaag → loggen → afronden → terugzien in
 Progress werkt allemaal via de app.
 
+### FASE 3 — Engines slimmer maken
+
+Eén engine per keer, telkens met de bijbehorende blueprint als bron.
+Volgorde:
+1. (klaar) Feedback-flow (bron: blueprint v2.12, sectie 2.12.7-2.12.8). Na
+   elke oefening (niet elke set) vraagt de app "Hoe voelde deze oefening?"
+   (😊 Makkelijk/🙂 Goed/😐 Zwaar/😣 Te zwaar) + apart "Had je ongemak of
+   pijn?" (Nee/Ja) — beide verplicht voordat de gebruiker verder kan.
+   Backend: `ExerciseFeedback`-model (`difficulty` enum + `discomfort`
+   boolean, per oefening per sessie), meegestuurd in dezelfde
+   `POST /workouts/sessions`-call als de gelogde sets. Bewust nog géén
+   reactie op de feedback (geen stoppen/alternatief bij pijn) — dat is
+   waar de Progression/Decision Engine (stap 2/4) voor zijn.
+2. (klaar) Progression Engine (bron: blueprint v0.8 + v2.14, pseudocode
+   v2.14.13). `ProgressionEngineService.evaluateSession()` draait
+   automatisch na elke opgeslagen sessie (in `WorkoutSessionsService.save`)
+   en bepaalt per oefening met feedback: KEEP/INCREASE/DECREASE/REPLACE.
+   Regels, in volgorde: discomfort → altijd REPLACE (voorrang boven alles);
+   geen historie voor deze oefening → KEEP; 3× op rij Te zwaar → DECREASE;
+   3× op rij Makkelijk → INCREASE; geïsoleerde matige/slechte feedback
+   (niet herhaald) → KEEP; betere prestatie dan vorige keer (meer reps/
+   gewicht) + Makkelijk/Goed → INCREASE; anders KEEP. Beslissing wordt
+   bewaard in `ExerciseProgression` (geheugen voor de trend-detectie) en
+   meegegeven in de `POST /workouts/sessions`-response. ADJUST is nog niet
+   geïmplementeerd (vereist Recovery Engine-context uit stap 3). Bewust nog
+   géén koppeling naar de Decision Engine — de beslissing wordt nu alleen
+   bepaald en bewaard, nog niet uitgevoerd (dat is stap 4).
+3. (klaar) Recovery Engine (bron: blueprint v0.9 + v2.15).
+   `RecoveryEngineService.getStatus()` via `GET /recovery/status`
+   (JWT-auth). Schat, per movement pattern én per spiergroep, de recente
+   trainingsbelasting (afgelopen 7 dagen) en geeft één van drie statussen
+   terug: 🟢 NORMAL, 🟡 RECENTLY_LOADED, 🔵 RECOVERY. Score = reps ×
+   moeilijkheidsgewicht (EASY 0,7 – TOO_HARD 1,6) × recency-verval (vandaag
+   1,0, aflopend naar 7+ dagen 0,1) — geen harde "48 uur rust"-regel, geen
+   nep-precisie zoals percentages (v2.15.1/v2.15.8). On-the-fly berekend
+   uit bestaande sessie-/feedbackdata, geen aparte tabel nodig. Bewust nog
+   géén koppeling naar de Decision Engine — dit is een modifier die
+   informatie levert, maar (nog) niemand raadpleegt hem (v2.15.3; wordt
+   stap 4).
+4. (klaar) Decision Engine v2 (bron: blueprint v0.7 + v1.9) —
+   `DecisionEngineService.getTodaysWorkout()` is nu een echte beslisladder
+   i.p.v. simpele eerste-match. Per slot:
+   1. VEILIGHEID (hard, nooit overschreven): niveau-tiering (beginner
+      krijgt alleen beginner-oefeningen, v1.9 stap 3), apparatuur, en een
+      oefening met de laatste Progression-beslissing REPLACE (= recent
+      pijn/ongemak) wordt uitgesloten zolang er een alternatief is
+      (v0.7.5/v0.7.9: "zwaar" mag aanpassen, "pijn" sluit uit).
+   2. SLIM (score, prioriteitsvolgorde uit v0.7.6): recente belasting/
+      herstel (RECENTLY_LOADED/RECOVERY → lichtste variant krijgt
+      voorrang) weegt zwaarder dan progressie (INCREASE/KEEP/DECREASE),
+      wat weer zwaarder weegt dan een kale niveauvoorkeur. Continuïteit
+      (dezelfde oefening als vorige keer) krijgt ook gewicht — "niet
+      iedere keer nieuwe oefeningen" (v0.7.7).
+   3. Reps passen automatisch mee met de progressiebeslissing van de
+      gekozen oefening (INCREASE +2, DECREASE -2, binnen 6-20).
+   Live geverifieerd: na een pijnmelding op een PUSH-oefening kiest de
+   engine bij de volgende `/workouts/today`-call automatisch een andere
+   PUSH-oefening.
+   **Bewust uitgesteld** (vereisen nieuwe schermen/inputs die nog niet
+   bestaan): Quick Session bij tijdgebrek, energie-check-in, weekplanning
+   + "gemiste training"-herplanning, handmatige "vandaag aanpassen"-
+   overrides (locatie/tijd/energie/oefening vervangen via de UI), en een
+   echte oefening-progressieladder (regressie/progressie gebeurt nu via
+   reps, niet via het wisselen naar een makkelijkere/moeilijkere variant).
+5. (klaar) Rule Guard (bron: blueprint v2.06) — `RuleGuardService`, een
+   onafhankelijke controle NA de Decision Engine ("Mag deze workout
+   daadwerkelijk aan deze gebruiker worden gegeven?", v2.6.1), niet
+   opnieuw dezelfde beslissingslogica. Alle 12 RG-controles zijn
+   geïmplementeerd, verdeeld in twee soorten:
+   - **Hard (blokkeert, gooit een fout):** RG01 apparatuur, RG02 locatie
+     (geen gym-machines thuis), RG03 niveau, RG06 progressiesprong-check
+     (reps altijd 6-20), RG07 volume (max. 30 sets), RG08 training-debt
+     (geen samengevoegde workouts), RG10 geen dubbele oefening in één
+     workout + geen dubbele set bij opslaan (`assertNoDuplicateSets`),
+     RG11 workout niet leeg.
+   - **Soft (waarschuwing in de response, blokkeert niet):** RG04 tijd
+     (geschatte duur vs. beschikbare tijd — kan nog niet opgelost worden
+     zonder Quick Session), RG05 herstel (patroon op RECOVERY, Decision
+     Engine kiest al de lichtste variant maar traint het toch), RG09 pijn
+     (oefening ondanks REPLACE gekozen — kan alleen bij géén alternatief,
+     zie Decision Engine-fallback).
+   - RG12 (gebruikerscontrole: vervangen/aanpassen/stoppen/overslaan) is
+     een UI-garantie, geen data-check — al gedekt door bestaande navigatie
+     (wegnavigeren, rust overslaan); een losse "vervang oefening"-knop
+     bestaat nog niet.
+   Live geverifieerd: dubbele set bij opslaan → 400; een MIN_15-gebruiker
+   krijgt een eerlijke RG04-waarschuwing ("~21 min overschrijdt de 15 min")
+   in plaats van een stille mismatch.
+6. (klaar) Motivation Engine (bron: blueprint v1.2 + v2.16) —
+   `MotivationEngineService.getStatus()` via `GET /motivation/status`
+   (JWT-auth). Levert een gedragssignaal, geen tekst — dat is bewust de
+   taak van de (latere) AI Coach (v2.16.15: "De Engine levert het
+   feitelijke signaal. AI verzorgt de menselijke communicatie.").
+   We hebben nog geen dag-voor-dag weekplanning (bewust uitgesteld bij
+   Decision Engine), dus het "plan" waarmee vergeleken wordt is
+   `weeklyFrequency` uit onboarding: heeft de gebruiker deze week zijn
+   eigen doel gehaald? Dat sluit vanzelf uit dat een losse rustdag de
+   streak breekt — er wordt nooit naar losse kalenderdagen gekeken, enkel
+   naar de week als geheel.
+   Signalen (prioriteitsvolgorde uit v2.16.16): RETURN_AFTER_ABSENCE
+   (14+ dagen niets gedaan) > MILESTONE_REACHED (1/5/10/25/50/100
+   trainingen) > CONSISTENCY_GOOD (weekdoel al gehaald) >
+   AT_RISK_OF_DROPOUT (3 volledig afgeronde weken op rij onder doel) >
+   CONSISTENCY_DECLINING (afgeronde week zwakker dan de week ervoor) >
+   NORMAL. Belangrijke correctie t.o.v. de blueprint-pseudocode: de
+   lopende week (nog niet voorbij) wordt nooit gebruikt om een "daling"
+   vast te stellen — dat zou een week die simpelweg nog niet klaar is
+   oneerlijk als achteruitgang bestempelen; dalingsdetectie gebruikt
+   uitsluitend volledig afgeronde weken.
+   `consistencyStreakWeeks`: aantal opeenvolgende weken (incl. de lopende,
+   als die het doel al haalde) dat het weekdoel gehaald werd.
+   **Bewust niet gebouwd** (badges/mijlpaal-UI, challenges, weekly-goal-
+   scherm, notificaties, leaderboard) — dat is UI/presentatie, geen
+   engine-logica, en zit buiten de goedgekeurde scope van deze stap.
+7. (klaar) AI Coach (bron: blueprint v1.0 + v2.18) — `AiCoachService`,
+   bewust **deterministisch/template-gebaseerd, geen LLM-koppeling**
+   (expliciet overlegd en gekozen i.p.v. een echte taalmodel-API, wat een
+   aparte infrastructuur-/kostenbeslissing zou zijn). Vertaalt de al-
+   berekende signalen (reason codes) van Motivation/Progression/Recovery
+   naar een korte Nederlandse tekst — beslist zelf niets, overschrijft
+   nooit een engine ("De Engines beslissen. De AI legt uit.", v2.18.1).
+   - `coachMessage` bij `GET /workouts/today`: legt uit waarom de training
+     er zo uitziet, in prioriteitsvolgorde: RETURN_AFTER_ABSENCE > net
+     vervangen oefening (pijn/ongemak) > recent belast patroon > dalende
+     consistentie > consistent op schema > neutraal.
+   - `coachMessage` bij `POST /workouts/sessions`: legt uit hoe de training
+     ging. Pijn/ongemak krijgt altijd voorrang (geen diagnose, erkent enkel
+     en legt uit wat er verandert) — ook boven een mijlpaal.
+   Per constructie onmogelijk om medische claims of verzonnen cijfers te
+   geven (v2.18.3): puur templates op gecontroleerde input, geen vrije
+   tekstgeneratie. Live geverifieerd: alle scenario's (welkom terug,
+   pijn/ongemak, mijlpaal, neutraal) leveren de juiste, veilige tekst.
+
+Regel: engines nemen beslissingen met vaste regels; AI komt er pas
+bovenop.
+
+Bewezen: alle 6 engines (Progression, Recovery, Decision, Rule Guard,
+Motivation, AI Coach) werken samen — een gebruiker die pijn meldt krijgt
+volgende keer automatisch een andere oefening (Decision Engine + Rule
+Guard), de Progression Engine bepaalt op basis van feedback en trend wat
+er moet veranderen, de Recovery Engine houdt rekening met recente
+belasting, de Motivation Engine herkent consistentie/afwezigheid/
+mijlpalen zonder ooit te straffen, en de AI Coach legt dit alles uit in
+korte, veilige Nederlandse tekst — zonder zelf ooit een beslissing te
+nemen.
+
 ## Huidige fase
 
-Nog te bepalen — lever de volgende blueprint-sectie aan zodra je klaar bent
-om verder te gaan.
+Nog te bepalen — lever de volgende blueprint-sectie aan zodra je klaar
+bent om verder te gaan.
