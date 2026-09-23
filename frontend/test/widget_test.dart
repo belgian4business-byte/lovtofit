@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:lovtofit_app/coach_screen.dart';
 import 'package:lovtofit_app/home_screen.dart';
@@ -120,6 +124,67 @@ void main() {
       // Laat de (in deze test onbereikbare) fetch-calls op tijd aflopen
       // zodat er geen hangende timer overblijft na de test.
       await tester.pump(const Duration(seconds: 6));
+    });
+
+    // Backend-antwoorden per endpoint; de schedule-response kan per test
+    // anders zijn.
+    Future<void> pumpHome(WidgetTester tester, {required Map<String, dynamic>? schedule}) async {
+      final client = MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/motivation/status')) {
+          // Laatste 7 dagen: telt ook vorige vrijdag mee.
+          return http.Response(jsonEncode({'consistencyStreakWeeks': 1, 'completedThisWeek': 1, 'weeklyTarget': 3}), 200);
+        }
+        if (path.endsWith('/recovery/status')) {
+          return http.Response(jsonEncode({'byMuscleGroup': [], 'byMovementPattern': []}), 200);
+        }
+        if (path.endsWith('/schedule/week') && schedule != null) {
+          return http.Response(jsonEncode(schedule), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+        }
+        return http.Response('', 500);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: HomeScreen(accessToken: 'test-token', email: 'test@example.com')),
+        );
+        await tester.pumpAndSettle();
+      }, () => client);
+    }
+
+    testWidgets('"Deze week" = de kalenderweek van de weekplanning, niet de laatste 7 dagen', (tester) async {
+      await pumpHome(tester, schedule: {
+        'completedThisWeek': 0,
+        'weeklyTarget': 3,
+        'smartReschedule': 'PREMIUM_REQUIRED',
+        'coachMessage': 'Geen probleem, we gaan gewoon verder. 💪 Je volgende training staat klaar voor vandaag.',
+      });
+
+      expect(find.text('Deze week: 0 van de 3 trainingen'), findsOneWidget);
+      expect(find.text('Je week'), findsOneWidget);
+      expect(find.textContaining('Je volgende training staat klaar voor vandaag'), findsOneWidget);
+      expect(find.text('Ontdek Premium'), findsOneWidget);
+    });
+
+    testWidgets('meer trainingen dan het weekdoel: "weekdoel gehaald", niet "30 van de 2"', (tester) async {
+      await pumpHome(tester, schedule: {
+        'completedThisWeek': 30,
+        'weeklyTarget': 2,
+        'smartReschedule': 'NOT_NEEDED',
+        'coachMessage': null,
+      });
+
+      expect(find.text('Deze week: weekdoel gehaald ✓ (30 trainingen, doel 2)'), findsOneWidget);
+      expect(find.textContaining('van de 2'), findsNothing);
+      expect(find.text('Je week'), findsNothing);
+    });
+
+    testWidgets('weekplanning niet beschikbaar: Home werkt gewoon, met de telling van de Motivation Engine', (
+      tester,
+    ) async {
+      await pumpHome(tester, schedule: null);
+
+      expect(find.text('Deze week: 1 van de 3 trainingen'), findsOneWidget);
+      expect(find.text('Je week'), findsNothing);
     });
   });
 

@@ -820,7 +820,7 @@ sessie wordt opgeslagen, en de progressie niet verstoort (geen nieuwe
 beslissing, nooit een vergelijkingspunt; pijn telt wel altijd). Goed/
 Normaal = de normale training; Quick Session blijft zonder check.
 
-## Huidige fase: FASE 9 — Smart Reschedule (gemiste training)
+### FASE 9 — Smart Reschedule (gemiste training)
 Doel: als de gebruiker een geplande training mist, herplant de app die zonder schuldgevoel en zonder stapeling. Voor de doelgroep "de Afhaker". Eén stap per keer.
 Principes: nooit bestraffend ("geen probleem, we pakken vandaag op"); nooit meerdere gemiste trainingen op [… rest van het blok ontbrak bij het plakken — nog aan te vullen]
 
@@ -865,3 +865,32 @@ Voortgang Fase 9:
    week wat verschoven…"; niets gemist/verschoven → `null`. Nooit het
    woord "gemist", geen aantallen, geen inhalen/schuld (getest). Live
    geverifieerd (Free/Premium/niets gemist).
+3. (klaar) Flutter: de reschedule-boodschap op Home. Home haalt ook
+   `GET /schedule/week` op en toont bovenaan de kaart "Je week" met de
+   `coachMessage` — alleen als er iets te melden is. Free: dezelfde tekst in
+   een rustige `PremiumTeaserCard` ("Ontdek Premium"; na de proefperiode
+   laadt Home opnieuw en staat de aangepaste week er meteen). Het Premium-
+   infoblad noemt nu ook Smart Reschedule. Laadt de weekplanning niet, dan
+   werkt Home gewoon verder zonder kaart. Getest op de telefoon (CPH2247)
+   met een account dat maandag oversloeg.
+   **Bugfix "Deze week: 30 van de 2":** geen rekenfout — het account had
+   echt 30 (test)trainingen deze week — maar (a) "X van de Y" werd onzin
+   boven het doel en (b) de consistentie-kaart telde de laatste 7 dagen
+   (Motivation Engine) terwijl de weekplanning en "Je week" de kalenderweek
+   ma-zo gebruiken. Nu: "Deze week" op Home = `completedThisWeek`/
+   `weeklyTarget` van `/schedule/week` (terugval op Motivation als die niet
+   laadt), en op/boven het doel "Deze week: weekdoel gehaald ✓ (30
+   trainingen, doel 2)". Streak en motivatiesignalen blijven bewust de
+   laatste 7 dagen gebruiken. Nagerekend in SQL (kalenderweek in
+   Europe/Brussels) voor drie accounts: telling klopt. Widget-tests met een
+   nagebootste backend (`http.runWithClient` + `MockClient`).
+
+Bewezen: slaat de gebruiker een geplande training over, dan krijgt hij op
+Home geen verwijt maar "Geen probleem, we gaan gewoon verder. 💪". Premium
+herplant de rest van de week — vandaag eerst, nooit twee trainingen op één
+dag, nooit boven het weekdoel, nooit meer dagen na elkaar dan het eigen
+schema — gecontroleerd door de Rule Guard (RG08/RG05); wat niet meer past
+valt weg zonder schuld ("Je hoeft niets in te halen"). Free houdt het
+standaardschema ("je volgende training staat klaar") met een rustige
+teaser, alleen na een échte gemiste training. "Deze week" betekent op Home
+overal dezelfde kalenderweek.
