@@ -3,6 +3,7 @@ import type { TrainingPreferences } from '../generated/prisma/client.js';
 import type { ProgressionDecision, SessionDuration } from '../generated/prisma/enums.js';
 import type { TodaysWorkoutSlot } from '../decision-engine/decision-engine.service.js';
 import type { RecoveryStatus } from '../recovery-engine/recovery-engine.service.js';
+import type { WeekSchedule } from '../schedule/week-schedule.js';
 
 export interface RuleGuardContext {
   preferences: Pick<TrainingPreferences, 'location' | 'equipment' | 'level' | 'sessionDuration'>;
@@ -70,13 +71,11 @@ export function estimateWorkoutSeconds(totalSets: number, restSeconds: number): 
  * als waarschuwing gemeld in plaats van de gebruiker te blokkeren — dat
  * past beter bij "de gebruiker houdt controle" dan een harde crash.
  *
- * RG08 (training debt) en RG12 (gebruikerscontrole: vervangen/aanpassen/
- * stoppen/overslaan) hebben geen zinvolle runtime-data-check in onze
- * huidige app — er bestaat nog geen weekplanning/gemiste-training-
- * herplanning die training debt zou kunnen veroorzaken, en
- * gebruikerscontrole is een UI-garantie (de gebruiker kan altijd
- * wegnavigeren/rust overslaan), geen iets wat op gegenereerde
- * workout-data te controleren valt.
+ * RG08 (training debt) wordt voor de weekplanning gecontroleerd in
+ * `checkSchedule` (Fase 9, Smart Reschedule). RG12 (gebruikerscontrole:
+ * vervangen/aanpassen/stoppen/overslaan) heeft geen zinvolle runtime-data-
+ * check — dat is een UI-garantie (de gebruiker kan altijd wegnavigeren/rust
+ * overslaan), geen iets wat op gegenereerde workout-data te controleren valt.
  */
 @Injectable()
 export class RuleGuardService {
@@ -138,10 +137,10 @@ export class RuleGuardService {
       violations.push(`RG07: totaal trainingsvolume (${totalSets} sets) is onrealistisch groot.`);
     }
 
-    // RG08 — Training debt: nooit twee trainingen samenvoegen. Er bestaat
-    // nog geen weekplanning/inhaalflow die dit zou kunnen veroorzaken, dus
-    // dit is nu een structurele garantie: één template levert altijd
-    // precies zijn eigen aantal slots op.
+    // RG08 — Training debt: nooit twee trainingen samenvoegen. Binnen één
+    // workout is dit een structurele garantie: één template levert altijd
+    // precies zijn eigen aantal slots op. De weekplanning (geen tweede
+    // training op een dag, niets inhalen) controleert `checkSchedule`.
     if (slots.length === 0) {
       violations.push('RG08/RG11: workout bevat geen enkele trainingscomponent.');
     }
@@ -176,6 +175,56 @@ export class RuleGuardService {
     }
 
     return { passed: violations.length === 0, violations, warnings };
+  }
+
+  /**
+   * Weekplanning / Smart Reschedule (CLAUDE.md Fase 9). Onafhankelijke
+   * controle achteraf, niet dezelfde planningslogica opnieuw: mag deze
+   * planning aan de gebruiker gegeven worden? (v2.32.12: … → DECISION ENGINE
+   * → RULE GUARD → NEW SCHEDULE). Alles is hard: een schending betekent een
+   * fout in de planner zelf.
+   */
+  checkSchedule(schedule: WeekSchedule): RuleGuardResult {
+    const violations: string[] = [];
+    const planned = schedule.days.filter((d) => d.status === 'PLANNED');
+
+    // RG08 — Training debt: nooit iets "inhalen" (v2.16.6).
+    const allowed = Math.max(0, schedule.weeklyTarget - schedule.completedThisWeek);
+    if (planned.length > allowed) {
+      violations.push(
+        `RG08: ${planned.length} trainingen gepland terwijl er deze week nog maar ${allowed} passen binnen het weekdoel.`,
+      );
+    }
+    for (const day of planned) {
+      if (day.sessionCount > 0) {
+        violations.push(`RG08: ${day.date} krijgt een tweede training op een dag waarop al getraind is.`);
+      }
+      if (day.date < schedule.today) {
+        violations.push(`RG08: ${day.date} ligt in het verleden en kan niet meer gepland worden.`);
+      }
+    }
+
+    // RG05 — Herstel: nooit meer trainingsdagen na elkaar dan het eigen
+    // schema van de gebruiker. Alleen reeksen met een geplande dag tellen —
+    // wat de gebruiker zelf al deed, is zijn keuze.
+    let run = schedule.trainingDaysBeforeWeek;
+    let runHasPlanned = false;
+    for (const day of schedule.days) {
+      if (day.status === 'DONE' || day.status === 'PLANNED') {
+        run++;
+        runHasPlanned ||= day.status === 'PLANNED';
+        if (runHasPlanned && run > schedule.maxConsecutiveTrainingDays) {
+          violations.push(
+            `RG05: ${day.date} maakt ${run} trainingsdagen na elkaar (max. ${schedule.maxConsecutiveTrainingDays}).`,
+          );
+        }
+      } else {
+        run = 0;
+        runHasPlanned = false;
+      }
+    }
+
+    return { passed: violations.length === 0, violations, warnings: [] };
   }
 
   /** Wordt aangeroepen vóór het opslaan van een sessie (RG10, het andere deel). */

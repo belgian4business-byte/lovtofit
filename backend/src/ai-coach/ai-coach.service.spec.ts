@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { MotivationSignal } from '../motivation-engine/motivation-engine.service.js';
 import { AiCoachService } from './ai-coach.service.js';
 
 describe('AiCoachService', () => {
@@ -304,6 +305,76 @@ describe('AiCoachService', () => {
       expect(message).toContain('Premium');
       expect(message).toContain('gratis');
       expect(message).not.toMatch(/kcal|geweigerd|denied/i);
+    });
+  });
+
+  describe('explainSchedule (Fase 9, Smart Reschedule)', () => {
+    // Vandaag = donderdag 24 september 2026.
+    const today = '2026-09-24';
+    const day = (date: string, status: 'DONE' | 'MISSED' | 'PLANNED' | 'REST') => ({
+      date,
+      weekday: 'MON' as const,
+      status,
+      isToday: date === today,
+      sessionCount: status === 'DONE' ? 1 : 0,
+    });
+    const week = (
+      smartReschedule: 'NOT_NEEDED' | 'APPLIED' | 'PREMIUM_REQUIRED',
+      missedCount: number,
+      planned: string[],
+    ) => ({
+      today,
+      missedCount,
+      smartReschedule,
+      days: [day('2026-09-21', 'DONE'), day('2026-09-23', 'MISSED'), ...planned.map((d) => day(d, 'PLANNED'))],
+    });
+    const explain = (schedule: ReturnType<typeof week>, motivationSignal: MotivationSignal = 'NORMAL') =>
+      service.explainSchedule({ motivationSignal, schedule });
+
+    it('zegt niets als er niets gemist of verschoven is', () => {
+      expect(explain(week('NOT_NEEDED', 0, ['2026-09-25']))).toBeNull();
+    });
+
+    it('Premium: geen probleem, week aangepast, niets inhalen (vandaag/morgen/weekdag)', () => {
+      expect(explain(week('APPLIED', 1, ['2026-09-24', '2026-09-25', '2026-09-27']))).toBe(
+        'Geen probleem, we gaan gewoon verder. 💪 Ik heb je week aangepast: je trainingen staan nu gepland voor vandaag, morgen en zondag. Je hoeft niets in te halen.',
+      );
+    });
+
+    it('Premium: één training over', () => {
+      expect(explain(week('APPLIED', 1, ['2026-09-26']))).toContain('je volgende training staat gepland voor zaterdag.');
+    });
+
+    it('Premium: niets meer in te plannen deze week → rustig verder volgende week', () => {
+      expect(explain(week('APPLIED', 2, []))).toContain('volgende week gaan we gewoon verder');
+    });
+
+    it('Premium zonder gemiste training (alleen verschoven voor rust)', () => {
+      expect(explain(week('APPLIED', 0, ['2026-09-26']))).toBe(
+        'Ik heb je week wat verschoven zodat je genoeg rust krijgt: je volgende training staat gepland voor zaterdag.',
+      );
+    });
+
+    it('Free: volgende training staat klaar + rustige Premium-teaser', () => {
+      expect(explain(week('PREMIUM_REQUIRED', 1, ['2026-09-25']))).toBe(
+        'Geen probleem, we gaan gewoon verder. 💪 Je volgende training staat klaar voor morgen. Met Premium plan ik je week automatisch opnieuw, zonder trainingen op elkaar te stapelen.',
+      );
+    });
+
+    it('na lange afwezigheid: welkom terug', () => {
+      expect(explain(week('APPLIED', 1, ['2026-09-24']), 'RETURN_AFTER_ABSENCE')).toMatch(/^Welkom terug 👋/);
+    });
+
+    it('nooit bestraffend: geen "gemist", geen aantallen, geen schuld', () => {
+      const messages = [
+        explain(week('APPLIED', 3, ['2026-09-24'])),
+        explain(week('APPLIED', 2, [])),
+        explain(week('PREMIUM_REQUIRED', 3, [])),
+        explain(week('PREMIUM_REQUIRED', 1, ['2026-09-25']), 'RETURN_AFTER_ABSENCE'),
+      ];
+      for (const message of messages) {
+        expect(message).not.toMatch(/gemist|schuld|\d|achter|moet/i);
+      }
     });
   });
 });

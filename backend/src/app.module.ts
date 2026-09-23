@@ -10,6 +10,7 @@ import { MotivationEngineModule } from './motivation-engine/motivation-engine.mo
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { RecoveryEngineModule } from './recovery-engine/recovery-engine.module.js';
+import { ScheduleModule } from './schedule/schedule.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { WaterIntakeModule } from './water-intake/water-intake.module.js';
 import { WorkoutsModule } from './workouts/workouts.module.js';
@@ -26,6 +27,7 @@ import { WorkoutsModule } from './workouts/workouts.module.js';
     CalorieGoalModule,
     FeatureAccessModule,
     SubscriptionsModule,
+    ScheduleModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, PrismaService],

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+import type { DayStatus, WeekSchedule } from '../schedule/week-schedule.js';
 import { RuleGuardService } from './rule-guard.service.js';
 
 describe('RuleGuardService', () => {
@@ -161,6 +162,76 @@ describe('RuleGuardService', () => {
       }));
 
       const result = service.checkWorkout(slots, { ...context(), timeLimit: { minutes: 10, restSeconds: 30 } });
+
+      expect(result.passed).toBe(true);
+    });
+  });
+
+  describe('checkSchedule (Fase 9, Smart Reschedule)', () => {
+    // Week ma 21 t/m zo 27 september 2026, vandaag = donderdag.
+    function schedule(statuses: DayStatus[], overrides: Partial<WeekSchedule> = {}): WeekSchedule {
+      const days = statuses.map((status, i) => ({
+        date: `2026-09-${21 + i}`,
+        weekday: (['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const)[i],
+        status,
+        isToday: i === 3,
+        sessionCount: status === 'DONE' ? 1 : 0,
+      }));
+      return {
+        weekStart: '2026-09-21',
+        today: '2026-09-24',
+        weeklyTarget: 3,
+        plannedWeekdays: ['MON', 'WED', 'FRI'],
+        maxConsecutiveTrainingDays: 1,
+        completedThisWeek: days.filter((d) => d.status === 'DONE').length,
+        missedCount: 0,
+        remainingThisWeek: 0,
+        droppedTrainings: 0,
+        smartReschedule: 'APPLIED',
+        trainingDaysBeforeWeek: 0,
+        days,
+        ...overrides,
+      };
+    }
+
+    it('laat een goede herplanning door', () => {
+      const result = service.checkSchedule(schedule(['DONE', 'REST', 'MISSED', 'PLANNED', 'REST', 'PLANNED', 'REST']));
+
+      expect(result.passed).toBe(true);
+    });
+
+    it('RG08: blokkeert inhalen (meer trainingen dan het weekdoel toelaat)', () => {
+      const result = service.checkSchedule(schedule(['DONE', 'REST', 'MISSED', 'PLANNED', 'REST', 'PLANNED', 'PLANNED']));
+
+      expect(result.passed).toBe(false);
+      expect(result.violations.some((v) => v.startsWith('RG08'))).toBe(true);
+    });
+
+    it('RG08: blokkeert een tweede training op een dag waarop al getraind is', () => {
+      const s = schedule(['DONE', 'REST', 'MISSED', 'PLANNED', 'REST', 'REST', 'REST']);
+      s.days[3].sessionCount = 1;
+
+      expect(service.checkSchedule(s).violations.some((v) => v.includes('tweede training'))).toBe(true);
+    });
+
+    it('RG08: blokkeert een geplande dag in het verleden', () => {
+      const result = service.checkSchedule(schedule(['DONE', 'PLANNED', 'REST', 'REST', 'REST', 'REST', 'REST']));
+
+      expect(result.violations.some((v) => v.includes('verleden'))).toBe(true);
+    });
+
+    it('RG05: blokkeert meer trainingsdagen na elkaar dan het eigen schema', () => {
+      const result = service.checkSchedule(schedule(['DONE', 'REST', 'DONE', 'PLANNED', 'REST', 'REST', 'REST']));
+      const acrossWeek = service.checkSchedule(
+        schedule(['PLANNED', 'REST', 'REST', 'REST', 'REST', 'REST', 'REST'], { today: '2026-09-21', trainingDaysBeforeWeek: 1 }),
+      );
+
+      expect(result.violations.some((v) => v.startsWith('RG05'))).toBe(true);
+      expect(acrossWeek.violations.some((v) => v.startsWith('RG05'))).toBe(true);
+    });
+
+    it('RG05: wat de gebruiker zelf na elkaar deed, is zijn keuze', () => {
+      const result = service.checkSchedule(schedule(['DONE', 'DONE', 'DONE', 'REST', 'REST', 'REST', 'REST']));
 
       expect(result.passed).toBe(true);
     });

@@ -3,6 +3,7 @@ import type { CalorieGoalReport } from '../calorie-goal/calorie-goal.service.js'
 import type { TrendDirection } from '../body-measurements/body-measurements.service.js';
 import { GoalType, type ProgressionDecision } from '../generated/prisma/enums.js';
 import type { MotivationSignal, MotivationStatus } from '../motivation-engine/motivation-engine.service.js';
+import { addDays, type WeekSchedule } from '../schedule/week-schedule.js';
 import type { WaterStatus } from '../water-intake/water-intake.service.js';
 
 /**
@@ -68,6 +69,62 @@ export class AiCoachService {
       return `${core} Een oefening die eerder niet lekker voelde, hebben we vervangen door een alternatief.`;
     }
     return `Weinig tijd vandaag? Geen probleem. ${core} Een korte training telt gewoon mee.`;
+  }
+
+  /**
+   * Smart Reschedule (Fase 9, stap 2): de boodschap als de gebruiker na een
+   * gemiste training terugkomt. Bron: v0.2 §18 ("Geen probleem. We gaan
+   * verder. 💪"), v0.3 §13 ("Je schema is aangepast"), v1.9 §25 ("Je hoeft
+   * niets in te halen"; Free: "je volgende geplande training staat klaar"),
+   * v1.9 regel 1769 (Premium-teaser), v2.37.12 (lange afwezigheid → welkom
+   * terug). Nooit (v1.4 §4, v2.21.15): het woord "gemist", een aantal
+   * gemiste trainingen, inhalen, schuld. Niets te melden → null.
+   */
+  explainSchedule(input: {
+    motivationSignal: MotivationSignal;
+    schedule: Pick<WeekSchedule, 'today' | 'missedCount' | 'smartReschedule' | 'days'>;
+  }): string | null {
+    const { today, missedCount, smartReschedule, days } = input.schedule;
+    if (missedCount === 0 && smartReschedule === 'NOT_NEEDED') {
+      return null;
+    }
+
+    const planned = days.filter((d) => d.status === 'PLANNED').map((d) => this.dayLabel(d.date, today));
+    const opening =
+      input.motivationSignal === 'RETURN_AFTER_ABSENCE' ? 'Welkom terug 👋' : 'Geen probleem, we gaan gewoon verder. 💪';
+
+    if (smartReschedule === 'APPLIED') {
+      if (planned.length === 0) {
+        return `${opening} Deze week plannen we niets meer bij, zodat je goed uitgerust bent — volgende week gaan we gewoon verder.`;
+      }
+      const plan =
+        planned.length === 1
+          ? `je volgende training staat gepland voor ${planned[0]}`
+          : `je trainingen staan nu gepland voor ${this.joinDutch(planned)}`;
+      if (missedCount === 0) {
+        // Geen gemiste training, alleen verschoven voor genoeg rust.
+        return `Ik heb je week wat verschoven zodat je genoeg rust krijgt: ${plan}.`;
+      }
+      return `${opening} Ik heb je week aangepast: ${plan}. Je hoeft niets in te halen.`;
+    }
+
+    // Free (PREMIUM_REQUIRED): standaardschema + één rustige teaser.
+    const next =
+      planned.length > 0
+        ? `Je volgende training staat klaar voor ${planned[0]}.`
+        : 'Volgende week gaan we gewoon verder.';
+    return `${opening} ${next} Met Premium plan ik je week automatisch opnieuw, zonder trainingen op elkaar te stapelen.`;
+  }
+
+  private dayLabel(date: string, today: string): string {
+    if (date === today) return 'vandaag';
+    if (date === addDays(today, 1)) return 'morgen';
+    const names = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+    return names[new Date(`${date}T12:00:00Z`).getUTCDay()];
+  }
+
+  private joinDutch(items: string[]): string {
+    return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} en ${items[items.length - 1]}`;
   }
 
   /** Premium-gate voor Quick Session (v1.1.16 + v2.19.13): waarde uitleggen, wat gratis blijft benoemen. */

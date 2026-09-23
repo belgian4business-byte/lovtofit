@@ -819,3 +819,49 @@ uitsluiting blijft), lichtste varianten, 2 sets, 2 reps minder, 60 s rust
 sessie wordt opgeslagen, en de progressie niet verstoort (geen nieuwe
 beslissing, nooit een vergelijkingspunt; pijn telt wel altijd). Goed/
 Normaal = de normale training; Quick Session blijft zonder check.
+
+## Huidige fase: FASE 9 — Smart Reschedule (gemiste training)
+Doel: als de gebruiker een geplande training mist, herplant de app die zonder schuldgevoel en zonder stapeling. Voor de doelgroep "de Afhaker". Eén stap per keer.
+Principes: nooit bestraffend ("geen probleem, we pakken vandaag op"); nooit meerdere gemiste trainingen op [… rest van het blok ontbrak bij het plakken — nog aan te vullen]
+
+Voortgang Fase 9:
+1. (klaar) Backend: gemiste training herkennen + slim herplannen. Bron:
+   blueprint v0.2 §18, v0.3 §13, v0.7.12, v0.9.15, v1.1.8 (Premium),
+   v1.4 §3-4, v1.9 §25, v2.16.6, v2.32.12. Er is nog geen opgeslagen
+   dag-voor-dag planning: bewust gekozen voor een **standaardschema
+   afgeleid uit `weeklyFrequency`** (2× ma/do, 3× ma/wo/vr, 4× ma/di/do/vr,
+   5× ma/di/wo/vr/za, 6× ma-za), niets opgeslagen, geen migratie; zelf
+   dagen kiezen kan later (vervangt enkel `DEFAULT_TRAINING_DAYS`).
+   `GET /schedule/week` (JWT, module `src/schedule/`, pure functie
+   `buildWeekSchedule()` in `week-schedule.ts`): kalenderweek ma-zo in
+   Europe/Brussels (nog geen tijdzone per gebruiker). Gemist = vóór vandaag
+   minder sessies dan voorbije geplande dagen (een dag later trainen is dus
+   niet gemist; dagen vóór de onboarding tellen nooit mee, de eerste week
+   krijgt een verlaagd weekdoel). Nooit stapelen: max. één training per
+   dag, nooit boven het weekdoel; wat niet meer past valt weg
+   (`droppedTrainings`, geen schuld). Herstel: nooit meer trainingsdagen na
+   elkaar dan het eigen schema (ook over de weekgrens). Premium
+   (`CAN_USE_SMART_RESCHEDULE`) herplant na een gemiste training (of als
+   het standaardschema niet meer past) over alle resterende dagen, vandaag
+   eerst → `smartReschedule: APPLIED`. Free houdt het standaardschema;
+   `PREMIUM_REQUIRED` (teaser) alleen na een échte gemiste training. Rule
+   Guard `checkSchedule()`: RG08 (niet boven het weekdoel, geen tweede
+   training op een dag, niets in het verleden) + RG05 (herstelreeks) —
+   hard, faalt luid. De training op een herplande dag zelf blijft
+   gewoon `/workouts/today` (Decision Engine, recovery-aware). Tests o.a.
+   een brute-force over alle frequenties × dagen × sessiecombinaties ×
+   Free/Premium door de Rule Guard. Live geverifieerd: Free vs Premium na
+   een gemiste maandag, eerste week, dag later getraind.
+2. (klaar) Backend: vriendelijke coach-boodschap bij terugkomst. Bron:
+   v0.2 §18 ("Geen probleem. We gaan verder. 💪"), v0.3 §13, v1.9 §25
+   ("Je hoeft niets in te halen"; Free: volgende training staat klaar),
+   v1.9 (teaser "zonder trainingen op elkaar te stapelen"), v2.37.12
+   (lange afwezigheid → "Welkom terug 👋"). `AiCoachService.
+   explainSchedule()` (templates, beslist niets) → `coachMessage` in
+   `GET /schedule/week`, pas ná de Rule Guard. Premium: "Ik heb je week
+   aangepast: je trainingen staan nu gepland voor vandaag, vrijdag en
+   zondag. Je hoeft niets in te halen."; Free: "Je volgende training staat
+   klaar voor …" + rustige teaser; alleen verschoven voor rust: "Ik heb je
+   week wat verschoven…"; niets gemist/verschoven → `null`. Nooit het
+   woord "gemist", geen aantallen, geen inhalen/schuld (getest). Live
+   geverifieerd (Free/Premium/niets gemist).
