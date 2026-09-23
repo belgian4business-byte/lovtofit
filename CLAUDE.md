@@ -822,7 +822,7 @@ Normaal = de normale training; Quick Session blijft zonder check.
 
 ### FASE 9 — Smart Reschedule (gemiste training)
 Doel: als de gebruiker een geplande training mist, herplant de app die zonder schuldgevoel en zonder stapeling. Voor de doelgroep "de Afhaker". Eén stap per keer.
-Principes: nooit bestraffend ("geen probleem, we pakken vandaag op"); nooit meerdere gemiste trainingen op [… rest van het blok ontbrak bij het plakken — nog aan te vullen]
+Principes: nooit bestraffend ("geen probleem, we pakken vandaag op"); nooit meerdere gemiste trainingen op één dag stapelen; blijft binnen de bestaande Decision/Recovery/Rule Guard-logica.
 
 Voortgang Fase 9:
 1. (klaar) Backend: gemiste training herkennen + slim herplannen. Bron:
@@ -894,3 +894,46 @@ valt weg zonder schuld ("Je hoeft niets in te halen"). Free houdt het
 standaardschema ("je volgende training staat klaar") met een rustige
 teaser, alleen na een échte gemiste training. "Deze week" betekent op Home
 overal dezelfde kalenderweek.
+
+## Oefeningenbibliotheek & foto's (lopend)
+Doel: de oefening-foto's (frontend/assets/exercises/, 26 oefeningen × man/
+vrouw/duo) in de app tonen. In stappen.
+1. (klaar) Foto's verkleind: 78 PNG (157 MB) → WebP 800 px breed, kwaliteit
+   82 (2,5 MB), bestandsnamen gelijk (`lovtofit_<oefening>_<man|vrouw|
+   duo>.webp`). Originele PNG's staan buiten de repo in
+   `C:\projects\lovtofit-originals\exercises\`.
+2. (klaar) 15 nieuwe oefeningen (seed, herhaalbaar) → 35 in totaal. Cardio:
+   Burpees, High Knees, Mountain Climbers, Stair Climbs, Treadmill
+   Intervals, Running Intervals, Sprints; core: Bicycle Crunches (ROTATION),
+   Superman (rug, CORE_STABILITY); Wall Sit (SQUAT); mobiliteit: Cat-Cow,
+   Downward Dog, Hip Circles, Standing Forward Fold, World's Greatest
+   Stretch. Indeling volgens blueprint v0.5. Migratie
+   `add_treadmill_and_outdoor`: materiaal `TREADMILL` (alleen met FULL_GYM,
+   alleen op locatie GYM/BOTH), veld `Exercise.location` (ANYWHERE/OUTDOOR)
+   en trainingslocatie `OUTDOOR`. Regels in de Decision Engine (filter) én
+   de Rule Guard (RG02): gym-apparaten alleen GYM/BOTH, buitenoefeningen
+   alleen OUTDOOR, wie buiten traint krijgt geen gym-apparaten.
+
+## Openstaande punten (later oppakken)
+1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
+   heeft alleen de slots SQUAT, PUSH, PULL, HINGE en CORE_STABILITY, dus de
+   cardio-oefeningen, de 5 mobiliteitsoefeningen en Bicycle Crunches
+   (ROTATION) worden nooit gekozen. Nodig: een warming-up/cooldown of een
+   cardio-blok in de templates (blueprint v0.5 §8-9, v0.6).
+2. **"Buiten" is nog niet kiesbaar.** De backend kent trainingslocatie
+   `OUTDOOR`, maar de onboarding (`frontend/lib/onboarding_flow.dart`)
+   biedt alleen Thuis/Fitness/Beide. Running Intervals en Sprints krijgt
+   dus nog niemand. Nodig: een keuze "🌳 Buiten" in onboarding/instellingen
+   (of een "vandaag train ik buiten"-optie).
+3. **Oefeningen op tijd bestaan nog niet.** Plank, Side Plank, Wall Sit en
+   de intervallen zijn eigenlijk op tijd (seconden, of werk/rust × rondes,
+   blueprint v0.5 §8), maar de app kent alleen sets × reps (6-20, RG06).
+   Nodig: een oefeningtype "tijd" in datamodel, Decision Engine, Rule Guard
+   en het workout-scherm.
+4. **Engine-filtering veranderd bij Thuis + "volledige gym".** Een
+   gebruiker met locatie HOME (of OUTDOOR) die FULL_GYM als materiaal
+   aanvinkt, krijgt nu nooit meer kabel-/machine-oefeningen of de
+   loopband: de Decision Engine filtert ze vooraf weg (vroeger kon de
+   engine er één kiezen en blokkeerde de Rule Guard daarna de hele
+   workout). Nog te bevestigen of dit het gewenste gedrag is, en of de
+   onboarding die combinatie nog moet toelaten.

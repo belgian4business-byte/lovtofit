@@ -11,9 +11,11 @@ import type {
   EnergyLevel,
   Equipment,
   ExerciseEquipment,
+  ExerciseLocation,
   ExperienceLevel,
   MovementPattern,
   ProgressionDecision,
+  TrainingLocation,
 } from '../generated/prisma/enums.js';
 import { MotivationEngineService } from '../motivation-engine/motivation-engine.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -29,8 +31,19 @@ const EQUIPMENT_MAP: Record<Equipment, ExerciseEquipment[]> = {
   DUMBBELLS: ['DUMBBELL'],
   RESISTANCE_BANDS: [],
   KETTLEBELL: [],
-  FULL_GYM: ['DUMBBELL', 'BARBELL', 'MACHINE_CABLE'],
+  FULL_GYM: ['DUMBBELL', 'BARBELL', 'MACHINE_CABLE', 'TREADMILL'],
 };
+
+// Locatie (blueprint v0.5 §8, RG02): gym-apparaten alleen wie (ook) in de
+// fitness traint; buitenoefeningen (hardlopen, sprints) alleen wie buiten
+// traint. Zelfde regels als de Rule Guard, maar hier als filter, zodat de
+// engine nooit iets kiest dat de Rule Guard daarna blokkeert.
+const GYM_MACHINES: ExerciseEquipment[] = ['MACHINE_CABLE', 'TREADMILL'];
+const GYM_LOCATIONS: TrainingLocation[] = ['GYM', 'BOTH'];
+
+function exerciseLocationsFor(location: TrainingLocation): ExerciseLocation[] {
+  return location === 'OUTDOOR' ? ['ANYWHERE', 'OUTDOOR'] : ['ANYWHERE'];
+}
 
 // Welke oefenniveaus een gebruiker mag krijgen (blueprint v1.9, stap 3:
 // "IF beginner -> difficulty <= beginner"). Een hard veiligheidsfilter,
@@ -75,6 +88,7 @@ export interface TodaysWorkoutSlot {
     muscleGroup: string;
     equipment: string;
     level: string;
+    location: string;
   };
 }
 
@@ -408,7 +422,7 @@ export class DecisionEngineService {
     }
     const template = templates.find((t) => t.level === preferences.level) ?? templates[0];
 
-    const allowedEquipment = this.allowedExerciseEquipment(preferences.equipment);
+    const allowedEquipment = this.allowedExerciseEquipment(preferences.equipment, preferences.location);
     const allowedLevels = ALLOWED_LEVELS[preferences.level];
 
     const [recovery, lastExerciseByPattern] = await Promise.all([
@@ -426,6 +440,7 @@ export class DecisionEngineService {
           movementPattern: slot.movementPattern,
           equipment: { in: allowedEquipment },
           level: { in: allowedLevels },
+          location: { in: exerciseLocationsFor(preferences.location) },
         },
         orderBy: { name: 'asc' },
       });
@@ -496,6 +511,7 @@ export class DecisionEngineService {
           muscleGroup: chosen.muscleGroup,
           equipment: chosen.equipment,
           level: chosen.level,
+          location: chosen.location,
         },
       });
     }
@@ -503,12 +519,15 @@ export class DecisionEngineService {
     return { preferences, template, slots, recoveryByPattern, decisionByChosenExercise, patternsReplacedForPain };
   }
 
-  private allowedExerciseEquipment(userEquipment: Equipment[]): ExerciseEquipment[] {
+  private allowedExerciseEquipment(userEquipment: Equipment[], location: TrainingLocation): ExerciseEquipment[] {
     const allowed = new Set<ExerciseEquipment>(['BODYWEIGHT']);
     for (const equipment of userEquipment) {
       for (const mapped of EQUIPMENT_MAP[equipment]) {
         allowed.add(mapped);
       }
+    }
+    if (!GYM_LOCATIONS.includes(location)) {
+      for (const machine of GYM_MACHINES) allowed.delete(machine);
     }
     return [...allowed];
   }

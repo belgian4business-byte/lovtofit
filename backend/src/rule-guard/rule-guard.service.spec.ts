@@ -17,6 +17,7 @@ describe('RuleGuardService', () => {
       muscleGroup: 'LEGS_GLUTES',
       equipment: 'BODYWEIGHT',
       level: 'BEGINNER',
+      location: 'ANYWHERE',
     },
   };
 
@@ -61,6 +62,50 @@ describe('RuleGuardService', () => {
 
     expect(result.passed).toBe(false);
     expect(result.violations.some((v) => v.startsWith('RG02'))).toBe(true);
+  });
+
+  describe('RG02 — loopband en buiten', () => {
+    const withExercise = (overrides: Record<string, string>) => ({
+      ...baseSlot,
+      exercise: { ...baseSlot.exercise, ...overrides },
+    });
+    const treadmill = withExercise({ name: 'Treadmill Intervals', equipment: 'TREADMILL' });
+    const sprints = withExercise({ name: 'Sprints', location: 'OUTDOOR' });
+    const rg02 = (result: { violations: string[] }) => result.violations.filter((v) => v.startsWith('RG02'));
+
+    it('blokkeert de loopband voor wie thuis of buiten traint, ook met "volledige gym"', () => {
+      for (const location of ['HOME', 'OUTDOOR'] as const) {
+        const result = service.checkWorkout([treadmill], context({ location: location as never, equipment: ['FULL_GYM'] as never }));
+        expect(rg02(result)).toHaveLength(1);
+      }
+    });
+
+    it('laat de loopband toe in de fitness (GYM of BOTH) met volledige gym', () => {
+      for (const location of ['GYM', 'BOTH'] as const) {
+        const result = service.checkWorkout([treadmill], context({ location: location as never, equipment: ['FULL_GYM'] as never }));
+        expect(result.passed).toBe(true);
+      }
+    });
+
+    it('RG01: de loopband vereist "volledige gym" als materiaal', () => {
+      const result = service.checkWorkout([treadmill], context({ location: 'GYM' as never, equipment: ['DUMBBELLS'] as never }));
+
+      expect(result.violations.some((v) => v.startsWith('RG01'))).toBe(true);
+    });
+
+    it('blokkeert een buitenoefening voor wie thuis, in de fitness of beide traint', () => {
+      for (const location of ['HOME', 'GYM', 'BOTH'] as const) {
+        const result = service.checkWorkout([sprints], context({ location: location as never }));
+        expect(rg02(result)).toEqual([`RG02: "Sprints" kan alleen buiten, gebruiker traint niet buiten.`]);
+      }
+    });
+
+    it('laat een buitenoefening toe voor wie buiten traint, maar geen gym-machines', () => {
+      const outdoor = context({ location: 'OUTDOOR' as never, equipment: ['FULL_GYM'] as never });
+
+      expect(service.checkWorkout([sprints], outdoor).passed).toBe(true);
+      expect(rg02(service.checkWorkout([withExercise({ equipment: 'MACHINE_CABLE' })], outdoor))).toHaveLength(1);
+    });
   });
 
   it('RG03: blokkeert een oefening boven het toegestane niveau', () => {

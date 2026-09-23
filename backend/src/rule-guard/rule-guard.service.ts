@@ -94,9 +94,16 @@ export class RuleGuardService {
         );
       }
 
-      // RG02 — Location: geen zware gym-machines voor een thuis-gebruiker.
-      if (context.preferences.location === 'HOME' && slot.exercise.equipment === 'MACHINE_CABLE') {
-        violations.push(`RG02: "${slot.exercise.name}" is gym-apparatuur, gebruiker traint thuis.`);
+      // RG02 — Location: gym-apparaten (kabel/machine, loopband) alleen voor
+      // wie (ook) in de fitness traint; buitenoefeningen alleen buiten.
+      const trainsInGym = context.preferences.location === 'GYM' || context.preferences.location === 'BOTH';
+      if (!trainsInGym && (slot.exercise.equipment === 'MACHINE_CABLE' || slot.exercise.equipment === 'TREADMILL')) {
+        violations.push(
+          `RG02: "${slot.exercise.name}" is gym-apparatuur, gebruiker traint niet in de fitness (${context.preferences.location}).`,
+        );
+      }
+      if (slot.exercise.location === 'OUTDOOR' && context.preferences.location !== 'OUTDOOR') {
+        violations.push(`RG02: "${slot.exercise.name}" kan alleen buiten, gebruiker traint niet buiten.`);
       }
 
       // RG03 — Level: nooit boven het toegestane niveau.
@@ -244,7 +251,7 @@ export class RuleGuardService {
   private gymEquipmentFor(preferences: Pick<TrainingPreferences, 'equipment'>): string[] {
     const gym: string[] = [];
     if (preferences.equipment.includes('DUMBBELLS')) gym.push('DUMBBELL');
-    if (preferences.equipment.includes('FULL_GYM')) gym.push('DUMBBELL', 'BARBELL', 'MACHINE_CABLE');
+    if (preferences.equipment.includes('FULL_GYM')) gym.push('DUMBBELL', 'BARBELL', 'MACHINE_CABLE', 'TREADMILL');
     return gym;
   }
 }

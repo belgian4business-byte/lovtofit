@@ -60,6 +60,9 @@ enum TrainingLocation {
   HOME
   GYM
   BOTH
+  // Buiten (park, straat, piste) — geen gym-machines, wel
+  // buitenoefeningen zoals hardlopen en sprints.
+  OUTDOOR
 }
 
 enum Equipment {
@@ -131,6 +134,17 @@ enum ExerciseEquipment {
   DUMBBELL
   BARBELL
   MACHINE_CABLE
+  // Gym-apparaat (blueprint v0.5 §8 "Fitness: Treadmill"), net als
+  // MACHINE_CABLE alleen in de fitness.
+  TREADMILL
+}
+
+// Waar een oefening kan (blueprint v0.5 §8: "rekening houden met de
+// trainingslocatie"). ANYWHERE = thuis, fitness én buiten; OUTDOOR = alleen
+// buiten (hardlopen, sprints).
+enum ExerciseLocation {
+  ANYWHERE
+  OUTDOOR
 }
 
 model Exercise {
@@ -140,6 +154,7 @@ model Exercise {
   movementPattern MovementPattern
   equipment       ExerciseEquipment
   level           ExperienceLevel
+  location        ExerciseLocation  @default(ANYWHERE)
   createdAt       DateTime          @default(now())
 
   loggedSets   LoggedSet[]

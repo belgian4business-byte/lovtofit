@@ -7,6 +7,13 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * cardio zodat de 7 hoofdgroepen vertegenwoordigd zijn. Bewust geen
  * isolatie-armoefeningen: de beginner-templates draaien om compound
  * bewegingen (blueprint v0.6, sectie 7).
+ *
+ * Uitbreiding met de oefeningen waarvoor foto's bestaan
+ * (frontend/assets/exercises/): cardio, extra core, wall sit en mobiliteit.
+ * Indeling volgens blueprint v0.5 (§3 Superman = rug, §7 bicycle crunch =
+ * core-rotatie, §8 cardio incl. "Fitness: Treadmill", §9 mobiliteit =
+ * warming-up/cooldown). Totaal nu 35 — ruim binnen de MVP-grens.
+ * `location` is standaard ANYWHERE; alleen hardlopen/sprints zijn OUTDOOR.
  */
 export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   // Push — borst
@@ -41,7 +48,29 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   { name: 'Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
   { name: 'Dead Bug', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
   { name: 'Side Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Superman', muscleGroup: 'BACK', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Bicycle Crunches', muscleGroup: 'CORE', movementPattern: 'ROTATION', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+
+  // Squat (isometrisch) — benen & billen
+  { name: 'Wall Sit', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
 
   // Cardio
   { name: 'Jumping Jacks', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'High Knees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Mountain Climbers', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Burpees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  // Trap op en af: thuis of buiten, overal waar een trap is.
+  { name: 'Stair Climbs', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  // Alleen in de fitness (loopband).
+  { name: 'Treadmill Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'TREADMILL', level: 'BEGINNER' },
+  // Alleen buiten.
+  { name: 'Running Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', location: 'OUTDOOR' },
+  { name: 'Sprints', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', location: 'OUTDOOR' },
+
+  // Mobiliteit & herstel (warming-up, cooldown, rustdag — v0.5 §9)
+  { name: 'Cat-Cow', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Downward Dog', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Hip Circles', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Standing Forward Fold', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: "World's Greatest Stretch", muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
 ];

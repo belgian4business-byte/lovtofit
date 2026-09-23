@@ -57,6 +57,7 @@ describe('DecisionEngineService', () => {
       muscleGroup: 'LEGS_GLUTES',
       equipment: 'BODYWEIGHT',
       level: 'BEGINNER',
+      location: 'ANYWHERE',
       ...overrides,
     };
   }
@@ -451,6 +452,49 @@ describe('DecisionEngineService', () => {
 
       expect(result.slots.map((s) => s.movementPattern)).not.toContain('SQUAT');
       expect(result.slots[0].movementPattern).toBe('PUSH');
+    });
+  });
+
+  describe('locatie: loopband en buiten', () => {
+    // Welke filter krijgt de database-query voor de oefeningen?
+    async function exerciseQueryFor(location: string, equipment: string[]) {
+      prisma.trainingPreferences.findUnique.mockResolvedValue({
+        level: 'BEGINNER',
+        equipment,
+        location,
+        sessionDuration: 'MIN_60_PLUS',
+      });
+      prisma.exercise.findMany.mockImplementation(({ where }: { where: { movementPattern: string } }) =>
+        Promise.resolve([exercise({ id: where.movementPattern, name: where.movementPattern, movementPattern: where.movementPattern })]),
+      );
+      await service.getTodaysWorkout('user-1');
+      return prisma.exercise.findMany.mock.calls[0][0].where as {
+        equipment: { in: string[] };
+        location: { in: string[] };
+      };
+    }
+
+    it('thuis met "volledige gym": geen gym-machines of loopband, geen buitenoefeningen', async () => {
+      const where = await exerciseQueryFor('HOME', ['FULL_GYM']);
+
+      expect(where.equipment.in).not.toContain('MACHINE_CABLE');
+      expect(where.equipment.in).not.toContain('TREADMILL');
+      expect(where.location.in).toEqual(['ANYWHERE']);
+    });
+
+    it('in de fitness met volledige gym: loopband mag, buitenoefeningen niet', async () => {
+      const where = await exerciseQueryFor('GYM', ['FULL_GYM']);
+
+      expect(where.equipment.in).toEqual(expect.arrayContaining(['MACHINE_CABLE', 'TREADMILL']));
+      expect(where.location.in).toEqual(['ANYWHERE']);
+    });
+
+    it('buiten: buitenoefeningen mogen, gym-machines niet', async () => {
+      const where = await exerciseQueryFor('OUTDOOR', ['FULL_GYM']);
+
+      expect(where.location.in).toEqual(['ANYWHERE', 'OUTDOOR']);
+      expect(where.equipment.in).not.toContain('TREADMILL');
+      expect(where.equipment.in).not.toContain('MACHINE_CABLE');
     });
   });
 });
