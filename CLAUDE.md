@@ -927,6 +927,21 @@ vrouw/duo) in de app tonen. In stappen.
    nog zonder foto: Reverse/Walking Lunge (foto toont een stilstaande
    lunge) en Dumbbell Chest Press (foto toont een halterstang). Getest op
    de telefoon.
+4. (klaar) Tweede fotoset (vierkant, 1254×1254) voor 9 oefeningen die nog
+   een placeholder hadden: Wall/Knee/Pike Push-up, Dumbbell Chest Press,
+   Inverted Row, Goblet Squat, Romanian Deadlift, Dead Bug, Side Plank →
+   33 van de 35 oefeningen hebben een foto (nog zonder: Reverse/Walking
+   Lunge). Omgezet naar WebP 800×800 met kwaliteit **95** (de bronnen zijn
+   zachter dan de eerste set; q82 maakte ze merkbaar waziger). Fotokader in
+   het workout-scherm: **4:3**, `BoxFit.cover` (altijd 100% gevuld, geen
+   opvulling), uitsnede net boven het midden (`Alignment(0, -0.5)`: liever
+   voeten dan hoofden kwijt). 4:3 i.p.v. vierkant omdat de 3:2-set (twee
+   mensen naast elkaar) in een vierkant kader mensen aan de zijkant
+   verloor. Maat via `exercisePhotoFrameSize`: volle breedte, max. 260 hoog
+   (≥800 hoog scherm), 170 (700-800) of 130 (<700), altijd 4:3 en
+   gecentreerd; getest dat "SET KLAAR" zonder scrollen in beeld blijft op
+   393×873, 360×740 (ook met energiebanner) en 360×640 (zonder banner).
+   Bekende uitzondering: 360×640 mét energiebanner → klein stukje scrollen.
 
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template

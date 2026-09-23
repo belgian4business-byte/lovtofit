@@ -207,11 +207,12 @@ void main() {
   group('ExercisePhoto', () {
     Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: Center(child: child)));
 
-    testWidgets('toont de duo-foto die bij de imageKey hoort', (tester) async {
+    testWidgets('toont de duo-foto als één afbeelding die het kader vult (cover)', (tester) async {
       await tester.pumpWidget(wrap(const ExercisePhoto(imageKey: 'squats', width: 300, height: 200)));
 
       final image = tester.widget<Image>(find.byType(Image));
       expect((image.image as AssetImage).assetName, 'assets/exercises/lovtofit_squats_duo.webp');
+      expect(image.fit, BoxFit.cover);
       expect(find.text('Foto volgt binnenkort'), findsNothing);
     });
 
@@ -234,7 +235,7 @@ void main() {
       final seed = File('../backend/prisma/seed-data/exercises.ts').readAsStringSync();
       final keys = RegExp(r"imageKey: '([a-z_]+)'").allMatches(seed).map((m) => m.group(1)!).toList();
 
-      expect(keys, hasLength(24));
+      expect(keys, hasLength(33));
       for (final key in keys) {
         expect(File(exercisePhotoAsset(key)).existsSync(), isTrue, reason: 'ontbreekt: ${exercisePhotoAsset(key)}');
       }
@@ -300,23 +301,63 @@ void main() {
       expect(find.text('Foto volgt binnenkort'), findsOneWidget);
     });
 
-    testWidgets('"SET KLAAR" blijft zonder scrollen in beeld, ook op een kleine telefoon (360×640)', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
+    // "SET KLAAR" zonder scrollen in beeld (afvinken in max. 2 tikken), per
+    // schermformaat en in de zwaarste situaties. Uitzondering: op een heel
+    // klein scherm (640 hoog) met de energiebanner past het niet — daar moet
+    // je op een Light Session-dag een klein stukje scrollen.
+    const screens = {'CPH2247 393×873': Size(393, 873), 'klein 360×740': Size(360, 740), 'heel klein 360×640': Size(360, 640)};
+    for (final screen in screens.entries) {
+      for (final banner in [false, true]) {
+        if (banner && screen.value.height < 700) continue;
+        testWidgets('"SET KLAAR" in beeld op ${screen.key}${banner ? ' met energiebanner' : ''} (oefening met gewicht)', (tester) async {
+          tester.view.physicalSize = screen.value;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: WorkoutScreen(
+                accessToken: 'test-token',
+                templateId: 'template-1',
+                energyAdjusted: banner,
+                exercises: const [
+                  WorkoutExercise(id: 'x', name: 'Dumbbell Row', equipment: 'DUMBBELL', targetSets: 3, targetReps: 10, imageKey: 'dumbbell_row'),
+                ],
+              ),
+            ),
+          );
+
+          expect(tester.getRect(find.text('SET KLAAR')).bottom, lessThanOrEqualTo(screen.value.height));
+        });
+      }
+    }
+
+    test('kader is altijd 4:3 en krimpt op kleine schermen (blijft 4:3)', () {
+      for (final screen in const [Size(393, 873), Size(360, 740), Size(360, 640)]) {
+        final frame = exercisePhotoFrameSize(availableWidth: screen.width - 48, screenHeight: screen.height);
+        expect(frame.width / frame.height, closeTo(4 / 3, 0.001));
+        expect(frame.width, lessThanOrEqualTo(screen.width - 48));
+      }
+      expect(exercisePhotoFrameSize(availableWidth: 345, screenHeight: 873).height, closeTo(258.75, 0.01));
+      expect(exercisePhotoFrameSize(availableWidth: 312, screenHeight: 740).height, 170);
+      expect(exercisePhotoFrameSize(availableWidth: 312, screenHeight: 640).height, 130);
+    });
+
+    testWidgets('de foto vult het kader volledig (cover, van rand tot rand), ook een vierkante foto', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: WorkoutScreen(
             accessToken: 'test-token',
             templateId: 'template-1',
-            // Met gewicht: de hoogste variant van het scherm.
-            exercises: [
-              WorkoutExercise(id: 'x', name: 'Dumbbell Row', equipment: 'DUMBBELL', targetSets: 3, targetReps: 10, imageKey: 'dumbbell_row'),
-            ],
+            exercises: [WorkoutExercise(id: 'x', name: 'Dead Bug', equipment: 'BODYWEIGHT', targetSets: 1, targetReps: 8, imageKey: 'dead_bug')],
           ),
         ),
       );
 
-      final button = tester.getRect(find.text('SET KLAAR'));
-      expect(button.bottom, lessThanOrEqualTo(640));
+      final image = find.byType(Image);
+      expect(tester.widget<Image>(image).fit, BoxFit.cover);
+      final frame = tester.getRect(find.ancestor(of: image, matching: find.byType(SizedBox)).first);
+      // CPH2247-formaat: volle breedte (345), 4:3.
+      expect(frame.width, 345);
+      expect(frame.width / frame.height, closeTo(4 / 3, 0.001));
+      expect(tester.getRect(image), frame);
     });
 
     testWidgets('toont "Aangepast aan je energie vandaag" alleen als de backend de training aanpaste', (

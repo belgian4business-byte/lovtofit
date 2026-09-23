@@ -17,33 +17,33 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * `imageKey` koppelt een oefening vast aan zijn foto
  * (lovtofit_<imageKey>_<variant>.webp); zonder imageKey toont de app een
  * placeholder. Bewust nog zonder foto: Reverse/Walking Lunge (de foto
- * "lunges" toont een stilstaande lunge) en Dumbbell Chest Press (de foto
- * "bankdrukken" toont een halterstang, geen losse halters).
+ * "lunges" toont een stilstaande lunge). De foto "bankdrukken" (halterstang)
+ * hoort bij geen enkele oefening; Dumbbell Chest Press heeft een eigen foto.
  */
 export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   // Push — borst
-  { name: 'Wall Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Knee Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Wall Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'wall_push_up' },
+  { name: 'Knee Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'knee_push_up' },
   { name: 'Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'push_ups' },
-  { name: 'Dumbbell Chest Press', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'INTERMEDIATE' },
+  { name: 'Dumbbell Chest Press', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'INTERMEDIATE', imageKey: 'dumbbell_chest_press' },
 
   // Push — schouders
-  { name: 'Pike Push-up', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Pike Push-up', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'pike_push_up' },
   { name: 'Dumbbell Shoulder Press', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'BEGINNER', imageKey: 'schouderpers' },
 
   // Pull — rug
-  { name: 'Inverted Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Inverted Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'inverted_row' },
   { name: 'Dumbbell Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'DUMBBELL', level: 'BEGINNER', imageKey: 'dumbbell_row' },
   { name: 'Lat Pulldown', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'MACHINE_CABLE', level: 'BEGINNER', imageKey: 'latpulldown' },
 
   // Squat — benen & billen
   { name: 'Bodyweight Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'squats' },
-  { name: 'Goblet Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'DUMBBELL', level: 'BEGINNER' },
+  { name: 'Goblet Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'DUMBBELL', level: 'BEGINNER', imageKey: 'goblet_squat' },
   { name: 'Leg Press', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'MACHINE_CABLE', level: 'BEGINNER', imageKey: 'beenpers' },
 
   // Hinge — benen & billen
   { name: 'Glute Bridge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'glute_bridge' },
-  { name: 'Romanian Deadlift', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'DUMBBELL', level: 'INTERMEDIATE' },
+  { name: 'Romanian Deadlift', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'DUMBBELL', level: 'INTERMEDIATE', imageKey: 'romanian_deadlift' },
 
   // Lunge — benen & billen
   { name: 'Reverse Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
@@ -51,8 +51,8 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
 
   // Core
   { name: 'Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'plank' },
-  { name: 'Dead Bug', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Side Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Dead Bug', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'dead_bug' },
+  { name: 'Side Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'side_plank' },
   { name: 'Superman', muscleGroup: 'BACK', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'superman' },
   { name: 'Bicycle Crunches', muscleGroup: 'CORE', movementPattern: 'ROTATION', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'bicycle_crunches' },
 

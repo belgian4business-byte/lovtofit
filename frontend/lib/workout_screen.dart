@@ -315,9 +315,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Begrensde hoogte: "SET KLAAR" moet ook op een kleine telefoon
-        // zonder scrollen in beeld blijven (afvinken in max. 2 tikken).
-        SizedBox(height: 160, child: ExercisePhoto(imageKey: _exercise.imageKey)),
+        // 4:3-kader, gecentreerd; de foto vult het kader altijd volledig —
+        // zie exercisePhotoFrameSize.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final frame = exercisePhotoFrameSize(
+              availableWidth: constraints.maxWidth,
+              screenHeight: MediaQuery.sizeOf(context).height,
+            );
+            return Center(
+              child: SizedBox.fromSize(size: frame, child: ExercisePhoto(imageKey: _exercise.imageKey)),
+            );
+          },
+        ),
         const SizedBox(height: 16),
         Text(
           'Oefening ${_exerciseIndex + 1} van ${widget.exercises.length}',
