@@ -16,9 +16,10 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * `location` is standaard ANYWHERE; alleen hardlopen/sprints zijn OUTDOOR.
  * `imageKey` koppelt een oefening vast aan zijn foto
  * (lovtofit_<imageKey>_<variant>.webp); zonder imageKey toont de app een
- * placeholder. Bewust nog zonder foto: Reverse/Walking Lunge (de foto
- * "lunges" toont een stilstaande lunge). De foto "bankdrukken" (halterstang)
- * hoort bij geen enkele oefening; Dumbbell Chest Press heeft een eigen foto.
+ * placeholder. Reverse Lunge en Walking Lunge delen de foto "lunges" (een
+ * stilstaande lunge toont de beweging duidelijk genoeg). De foto
+ * "bankdrukken" (halterstang) hoort bij geen enkele oefening; Dumbbell Chest
+ * Press heeft een eigen foto.
  */
 export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   // Push — borst
@@ -46,8 +47,8 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   { name: 'Romanian Deadlift', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'DUMBBELL', level: 'INTERMEDIATE', imageKey: 'romanian_deadlift' },
 
   // Lunge — benen & billen
-  { name: 'Reverse Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Walking Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Reverse Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'lunges' },
+  { name: 'Walking Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'lunges' },
 
   // Core
   { name: 'Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'plank' },

@@ -235,7 +235,7 @@ void main() {
       final seed = File('../backend/prisma/seed-data/exercises.ts').readAsStringSync();
       final keys = RegExp(r"imageKey: '([a-z_]+)'").allMatches(seed).map((m) => m.group(1)!).toList();
 
-      expect(keys, hasLength(33));
+      expect(keys, hasLength(35)); // Reverse en Walking Lunge delen "lunges"
       for (final key in keys) {
         expect(File(exercisePhotoAsset(key)).existsSync(), isTrue, reason: 'ontbreekt: ${exercisePhotoAsset(key)}');
       }

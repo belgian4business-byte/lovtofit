@@ -942,6 +942,11 @@ vrouw/duo) in de app tonen. In stappen.
    gecentreerd; getest dat "SET KLAAR" zonder scrollen in beeld blijft op
    393×873, 360×740 (ook met energiebanner) en 360×640 (zonder banner).
    Bekende uitzondering: 360×640 mét energiebanner → klein stukje scrollen.
+5. (klaar) Reverse Lunge en Walking Lunge delen de foto `lunges` (een
+   stilstaande lunge toont de beweging duidelijk genoeg) → **alle 35
+   oefeningen hebben een foto**, geen placeholders meer in de huidige
+   bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
+   zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
