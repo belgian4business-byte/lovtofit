@@ -11,7 +11,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Difficulty } from '../../generated/prisma/enums.js';
+import { Difficulty, EnergyLevel } from '../../generated/prisma/enums.js';
 
 export class LoggedSetDto {
   @IsUUID()
@@ -57,4 +57,9 @@ export class SaveWorkoutSessionDto {
   @ValidateNested({ each: true })
   @Type(() => ExerciseFeedbackDto)
   feedback!: ExerciseFeedbackDto[];
+
+  /** Fase 8: de energie-keuze waarmee deze training is samengesteld (optioneel). */
+  @IsOptional()
+  @IsEnum(EnergyLevel)
+  energyLevel?: EnergyLevel;
 }

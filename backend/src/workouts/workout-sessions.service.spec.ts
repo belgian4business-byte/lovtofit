@@ -110,6 +110,7 @@ describe('WorkoutSessionsService', () => {
       'session-1',
       [{ exerciseId: 'exercise-1', setNumber: 1, reps: 12 }],
       [{ exerciseId: 'exercise-1', difficulty: 'GOOD', discomfort: false }],
+      undefined, // geen energie-check → gewone evaluatie
     );
     expect(result.progressionOutcomes).toEqual([
       {

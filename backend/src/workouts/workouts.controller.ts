@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { DecisionEngineService } from '../decision-engine/decision-engine.service.js';
 import { QuickSessionQueryDto } from './dto/quick-session-query.dto.js';
 import { SaveWorkoutSessionDto } from './dto/save-workout-session.dto.js';
+import { TodayQueryDto } from './dto/today-query.dto.js';
 import { WorkoutSessionsService } from './workout-sessions.service.js';
 
 @Controller('workouts')
@@ -16,8 +17,8 @@ export class WorkoutsController {
   ) {}
 
   @Get('today')
-  getToday(@CurrentUser() user: AuthenticatedUser) {
-    return this.decisionEngine.getTodaysWorkout(user.id);
+  getToday(@CurrentUser() user: AuthenticatedUser, @Query() query: TodayQueryDto) {
+    return this.decisionEngine.getTodaysWorkout(user.id, query.energy);
   }
 
   // Premium (CAN_USE_QUICK_SESSION): de check zit in de Decision Engine zelf.

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Difficulty, ProgressionDecision } from '../generated/prisma/enums.js';
+import { Difficulty, EnergyLevel, ProgressionDecision } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 interface CurrentSet {
@@ -36,8 +36,29 @@ export class ProgressionEngineService {
     sessionId: string,
     sets: CurrentSet[],
     feedback: CurrentFeedback[],
+    energyLevel?: EnergyLevel,
   ): Promise<{ exerciseId: string; decision: ProgressionDecision }[]> {
     const decisions: { exerciseId: string; decision: ProgressionDecision }[] = [];
+
+    // Fase 8: een Light Session (lage energie) zegt niets over progressie —
+    // bewust minder sets/reps, en "zwaar" op een vermoeide dag is geen
+    // trend. Net als bij Quick Session (v0.8.11) gaat de volgende normale
+    // training verder waar de gebruiker gebleven was: er wordt dus géén
+    // nieuwe beslissing opgeslagen (die zou bv. een eerdere INCREASE
+    // overschrijven). Alleen pijn/ongemak telt altijd (veiligheid, v2.14.6).
+    if (energyLevel === EnergyLevel.LOW) {
+      for (const entry of feedback) {
+        if (entry.discomfort) {
+          await this.prisma.exerciseProgression.create({
+            data: { userId, exerciseId: entry.exerciseId, sessionId, decision: ProgressionDecision.REPLACE },
+          });
+          decisions.push({ exerciseId: entry.exerciseId, decision: ProgressionDecision.REPLACE });
+        } else {
+          decisions.push({ exerciseId: entry.exerciseId, decision: await this.latestDecision(userId, entry.exerciseId) });
+        }
+      }
+      return decisions;
+    }
 
     for (const entry of feedback) {
       const decision = await this.evaluateExercise(userId, sessionId, sets, entry);
@@ -65,7 +86,11 @@ export class ProgressionEngineService {
     const history = await this.prisma.exerciseFeedback.findMany({
       where: {
         exerciseId: current.exerciseId,
-        session: { userId },
+        // Light Sessions tellen niet mee als vergelijkingspunt (anders telt
+        // de volgende normale training als "meer reps dan vorige keer").
+        // Expliciet OR met null: `not: LOW` alleen zou in SQL ook alle
+        // sessies zonder energie-check uitsluiten.
+        session: { userId, OR: [{ energyLevel: null }, { energyLevel: { not: EnergyLevel.LOW } }] },
         sessionId: { not: sessionId },
       },
       orderBy: { session: { completedAt: 'desc' } },
@@ -131,6 +156,16 @@ export class ProgressionEngineService {
     }
 
     return ProgressionDecision.KEEP;
+  }
+
+  /** Laatst opgeslagen beslissing voor deze oefening (zonder historie: KEEP). */
+  private async latestDecision(userId: string, exerciseId: string): Promise<ProgressionDecision> {
+    const latest = await this.prisma.exerciseProgression.findFirst({
+      where: { userId, exerciseId },
+      orderBy: { createdAt: 'desc' },
+      select: { decision: true },
+    });
+    return latest?.decision ?? ProgressionDecision.KEEP;
   }
 
   private averagePerformance(sets: CurrentSet[]): Performance {

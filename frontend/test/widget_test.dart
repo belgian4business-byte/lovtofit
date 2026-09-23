@@ -11,6 +11,7 @@ import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
 import 'package:lovtofit_app/theme/app_theme.dart';
 import 'package:lovtofit_app/train_screen.dart';
+import 'package:lovtofit_app/widgets/energy_check_sheet.dart';
 import 'package:lovtofit_app/widgets/premium_teaser_card.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
@@ -161,6 +162,35 @@ void main() {
         exercises: exercises,
       ),
     );
+
+    testWidgets('toont "Aangepast aan je energie vandaag" alleen als de backend de training aanpaste', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWorkoutScreen());
+      expect(find.text('Aangepast aan je energie vandaag'), findsNothing);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorkoutScreen(
+            key: ValueKey('light'),
+            accessToken: 'test-token',
+            templateId: 'template-1',
+            exercises: exercises,
+            restSeconds: 60,
+            energyLevel: 'LOW',
+            energyAdjusted: true,
+          ),
+        ),
+      );
+      expect(find.text('Aangepast aan je energie vandaag'), findsOneWidget);
+      // De melding blijft staan tijdens de rust.
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
+      await tester.pump();
+      expect(find.text('01:00'), findsOneWidget);
+      expect(find.text('Aangepast aan je energie vandaag'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+    });
 
     testWidgets('gebruikt standaard 45 s rust, en de kortere Quick Session-rust als die meekomt', (
       WidgetTester tester,
@@ -356,6 +386,44 @@ void main() {
       // Laat alle (in deze test onbereikbare) fetches op tijd aflopen
       // zodat er geen hangende timer overblijft na de test.
       await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('EnergyCheckSheet', () {
+    Future<EnergyChoice?> pickFromSheet(WidgetTester tester, String label) async {
+      EnergyChoice? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async => result = await showEnergyCheckSheet(context),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hoe voel je je vandaag?'), findsOneWidget);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      return result;
+    }
+
+    testWidgets('toont drie keuzes + Overslaan en geeft de backend-waarde terug', (WidgetTester tester) async {
+      expect((await pickFromSheet(tester, 'Weinig energie'))?.level, 'LOW');
+      expect((await pickFromSheet(tester, 'Normaal'))?.level, 'NORMAL');
+      expect((await pickFromSheet(tester, 'Goed'))?.level, 'HIGH');
+    });
+
+    testWidgets('Overslaan geeft "overgeslagen" terug (geen energie), niet annuleren', (WidgetTester tester) async {
+      final result = await pickFromSheet(tester, 'Overslaan');
+
+      expect(result, same(EnergyChoice.skipped));
+      expect(result?.level, isNull);
     });
   });
 

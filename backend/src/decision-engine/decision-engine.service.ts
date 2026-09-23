@@ -8,6 +8,7 @@ import { AiCoachService } from '../ai-coach/ai-coach.service.js';
 import { FeatureAccessService } from '../feature-access/feature-access.service.js';
 import type { Exercise } from '../generated/prisma/client.js';
 import type {
+  EnergyLevel,
   Equipment,
   ExerciseEquipment,
   ExperienceLevel,
@@ -85,6 +86,37 @@ export interface TodaysWorkout {
   ruleGuardWarnings: string[];
   /** AI Coach-uitleg waarom de training er vandaag zo uitziet. */
   coachMessage: string;
+}
+
+export interface TodaysWorkoutWithEnergy extends TodaysWorkout {
+  /** Wat de gebruiker koos in de energie-check; null = overgeslagen. */
+  energyLevel: EnergyLevel | null;
+  /** true = Light Session (lage energie) — voor "Aangepast aan je energie vandaag". */
+  energyAdjusted: boolean;
+  restSeconds: number;
+}
+
+// Light Session bij lage energie (Fase 8; blueprint v0.6 §10 "minder sets,
+// lagere intensiteit, langere rust, eenvoudige oefeningen — 3×12 → 2×10",
+// v1.9 #23 "reduce volume, reduce intensity, prefer familiar exercises",
+// v2.0 test 08 "3 sets → 2", v2.4.5 "langere rust geven"). Bewust géén
+// oefeningen weglaten: de volledige-lichaamsbalans blijft, alleen lichter.
+export const LIGHT_SESSION_SETS = 2;
+export const LIGHT_SESSION_REPS_REDUCTION = 2;
+export const LIGHT_SESSION_REST_SECONDS = 60;
+const NORMAL_REST_SECONDS_FOR_RESPONSE = 45;
+
+/**
+ * Maakt een al veilig samengestelde workout lichter (pure functie). Kan de
+ * workout alleen lichter maken, nooit zwaarder — reps blijven binnen de
+ * 6-20-bandbreedte die RG06 afdwingt.
+ */
+export function applyLightSession(slots: TodaysWorkoutSlot[]): TodaysWorkoutSlot[] {
+  return slots.map((slot) => ({
+    ...slot,
+    targetSets: Math.min(slot.targetSets, LIGHT_SESSION_SETS),
+    targetReps: Math.max(slot.targetReps - LIGHT_SESSION_REPS_REDUCTION, MIN_TARGET_REPS),
+  }));
 }
 
 export interface QuickSession extends TodaysWorkout {
@@ -224,18 +256,35 @@ export class DecisionEngineService {
     private readonly featureAccess: FeatureAccessService,
   ) {}
 
-  async getTodaysWorkout(userId: string): Promise<TodaysWorkout> {
-    const { preferences, template, slots, recoveryByPattern, decisionByChosenExercise } =
-      await this.selectWorkout(userId);
+  /**
+   * @param energyLevel Optionele energie-check (Fase 8). Alleen LOW past de
+   * training aan (Light Session); NORMAL/HIGH/overgeslagen = normale
+   * training. Een modifier bovenop dezelfde beslisladder: veiligheid,
+   * pijn-uitsluiting en de Rule Guard blijven onverminderd gelden.
+   */
+  async getTodaysWorkout(userId: string, energyLevel?: EnergyLevel): Promise<TodaysWorkoutWithEnergy> {
+    const isLowEnergy = energyLevel === 'LOW';
+    const selection = await this.selectWorkout(userId, { preferLightestVariant: isLowEnergy });
+    const { preferences, template, recoveryByPattern, decisionByChosenExercise } = selection;
+
+    const slots = isLowEnergy ? applyLightSession(selection.slots) : selection.slots;
+    const restSeconds = isLowEnergy ? LIGHT_SESSION_REST_SECONDS : NORMAL_REST_SECONDS_FOR_RESPONSE;
 
     const ruleGuardResult = this.ruleGuard.checkWorkout(slots, {
       preferences,
       recoveryByPattern,
       decisionByChosenExercise,
+      restSeconds,
     });
     this.assertRuleGuardPassed(ruleGuardResult);
 
-    const coachMessage = await this.explainWorkout(userId, slots, recoveryByPattern, decisionByChosenExercise);
+    const coachMessage = await this.explainWorkout(
+      userId,
+      slots,
+      recoveryByPattern,
+      decisionByChosenExercise,
+      isLowEnergy,
+    );
 
     return {
       templateId: template.id,
@@ -243,6 +292,9 @@ export class DecisionEngineService {
       slots,
       ruleGuardWarnings: ruleGuardResult.warnings,
       coachMessage,
+      energyLevel: energyLevel ?? null,
+      energyAdjusted: isLowEnergy,
+      restSeconds,
     };
   }
 
@@ -319,6 +371,7 @@ export class DecisionEngineService {
     slots: TodaysWorkoutSlot[],
     recoveryByPattern: Map<MovementPattern, string>,
     decisionByChosenExercise: Map<string, ProgressionDecision | undefined>,
+    isLowEnergy: boolean,
   ): Promise<string> {
     const motivation = await this.motivationEngine.getStatus(userId);
     const hasRecentlyLoadedPattern = slots.some((slot) => {
@@ -330,11 +383,17 @@ export class DecisionEngineService {
       motivationSignal: motivation.signal,
       hasRecentlyLoadedPattern,
       hadRecentReplace,
+      isLowEnergy,
     });
   }
 
-  /** Veiligheid + score per slot — gedeeld door normale training en Quick Session. */
-  private async selectWorkout(userId: string) {
+  /**
+   * Veiligheid + score per slot — gedeeld door normale training en Quick
+   * Session. `preferLightestVariant` (lage energie): elk patroon krijgt de
+   * lichtste variant-voorrang die anders alleen een recent belast patroon
+   * krijgt ("avoid unnecessary complexity", v1.9 #23).
+   */
+  private async selectWorkout(userId: string, options: { preferLightestVariant?: boolean } = {}) {
     const preferences = await this.prisma.trainingPreferences.findUnique({ where: { userId } });
     if (!preferences) {
       throw new NotFoundException('Onboarding nog niet afgerond');
@@ -400,6 +459,7 @@ export class DecisionEngineService {
           decision: latestDecisionByExercise.get(exercise.id),
           recoveryStatus,
           lightestLevelInPool,
+          preferLightestVariant: options.preferLightestVariant ?? false,
         }),
       }));
       scored.sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
@@ -455,6 +515,7 @@ export class DecisionEngineService {
       decision: ProgressionDecision | undefined;
       recoveryStatus: string;
       lightestLevelInPool: ExperienceLevel;
+      preferLightestVariant: boolean;
     },
   ): number {
     // Gewichten volgen de prioriteitsvolgorde uit blueprint v0.7.6: recente
@@ -466,7 +527,7 @@ export class DecisionEngineService {
 
     const patternIsLoaded =
       context.recoveryStatus === 'RECENTLY_LOADED' || context.recoveryStatus === 'RECOVERY';
-    if (patternIsLoaded && exercise.level === context.lightestLevelInPool) {
+    if ((patternIsLoaded || context.preferLightestVariant) && exercise.level === context.lightestLevelInPool) {
       score += 30;
     }
 

@@ -15,6 +15,8 @@ export interface RuleGuardContext {
    * immers een manier om het op te lossen (inkorten).
    */
   timeLimit?: { minutes: number; restSeconds: number };
+  /** Rust per set bij een normale training (Light Session: langer). Standaard 45 s. */
+  restSeconds?: number;
 }
 
 export interface RuleGuardResult {
@@ -162,7 +164,9 @@ export class RuleGuardService {
     } else {
       // Normale training: de gebruiker kan zelf voor een Quick Session
       // kiezen, dus melden we een mismatch enkel.
-      const estimatedMinutes = Math.round(estimateWorkoutSeconds(totalSets, NORMAL_REST_SECONDS) / 60);
+      const estimatedMinutes = Math.round(
+        estimateWorkoutSeconds(totalSets, context.restSeconds ?? NORMAL_REST_SECONDS) / 60,
+      );
       const availableMinutes = SESSION_DURATION_MINUTES[context.preferences.sessionDuration];
       if (estimatedMinutes > availableMinutes) {
         warnings.push(

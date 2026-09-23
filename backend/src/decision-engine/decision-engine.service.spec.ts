@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiCoachService } from '../ai-coach/ai-coach.service.js';
 import { RuleGuardService } from '../rule-guard/rule-guard.service.js';
 import {
+  applyLightSession,
   DecisionEngineService,
   planQuickSession,
   QUICK_SESSION_MINUTE_OPTIONS,
@@ -258,6 +259,50 @@ describe('DecisionEngineService', () => {
     expect(result.coachMessage).toBe('Welkom terug 👋 We beginnen rustig weer op.');
   });
 
+  describe('energie-check (Fase 8)', () => {
+    beforeEach(() => {
+      prisma.trainingPreferences.findUnique.mockResolvedValue({
+        level: 'INTERMEDIATE',
+        equipment: ['NONE'],
+        location: 'HOME',
+        sessionDuration: 'MIN_45',
+      });
+      prisma.exercise.findMany.mockImplementation(({ where }: { where: { movementPattern: string } }) =>
+        Promise.resolve([
+          exercise({ id: `${where.movementPattern}-beginner`, name: `A ${where.movementPattern}`, movementPattern: where.movementPattern, level: 'BEGINNER' }),
+          exercise({ id: `${where.movementPattern}-intermediate`, name: `B ${where.movementPattern}`, movementPattern: where.movementPattern, level: 'INTERMEDIATE' }),
+        ]),
+      );
+    });
+
+    it('LOW: Light Session — 2 sets, 2 reps minder, langere rust, lichtste variant', async () => {
+      const result = await service.getTodaysWorkout('user-1', 'LOW');
+
+      expect(result.slots.every((s) => s.targetSets === 2 && s.targetReps === 10)).toBe(true);
+      expect(result.slots.every((s) => s.exercise.level === 'BEGINNER')).toBe(true);
+      expect(result).toMatchObject({ energyLevel: 'LOW', energyAdjusted: true, restSeconds: 60 });
+      expect(result.coachMessage).toContain('lichter');
+    });
+
+    it('NORMAL, HIGH of overgeslagen: gewoon de normale training (hoge energie ≠ meer volume)', async () => {
+      for (const energy of ['NORMAL', 'HIGH', undefined] as const) {
+        const result = await service.getTodaysWorkout('user-1', energy);
+
+        expect(result.slots.every((s) => s.targetSets === 3 && s.targetReps === 12)).toBe(true);
+        expect(result.slots.every((s) => s.exercise.level === 'INTERMEDIATE')).toBe(true);
+        expect(result).toMatchObject({ energyLevel: energy ?? null, energyAdjusted: false, restSeconds: 45 });
+      }
+    });
+
+    it('LOW overrulet nooit de veiligheid: een oefening na een pijnmelding blijft uitgesloten', async () => {
+      prisma.exerciseProgression.findMany.mockResolvedValue([{ exerciseId: 'PUSH-beginner', decision: 'REPLACE' }]);
+
+      const result = await service.getTodaysWorkout('user-1', 'LOW');
+
+      expect(result.slots.find((s) => s.movementPattern === 'PUSH')?.exercise.id).toBe('PUSH-intermediate');
+    });
+  });
+
   describe('getQuickSession (Fase 7)', () => {
     const fullTemplate = {
       ...template,
@@ -380,5 +425,29 @@ describe('planQuickSession', () => {
 
   it('geeft null als er zelfs geen enkele oefening × 2 sets past', () => {
     expect(planQuickSession(slots, new Map(), 2)).toBeNull();
+  });
+});
+
+describe('applyLightSession', () => {
+  const slot = (targetSets: number, targetReps: number) =>
+    ({
+      order: 0,
+      movementPattern: 'SQUAT',
+      targetSets,
+      targetReps,
+      exercise: { id: 'x', name: 'x', muscleGroup: 'x', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+    }) as never;
+
+  it('3×12 → 2×10 (v0.6 §10) en 3×14 (na INCREASE) → 2×12', () => {
+    const [a, b] = applyLightSession([slot(3, 12), slot(3, 14)]);
+
+    expect([a.targetSets, a.targetReps]).toEqual([2, 10]);
+    expect([b.targetSets, b.targetReps]).toEqual([2, 12]);
+  });
+
+  it('maakt nooit zwaarder en zakt nooit onder 6 reps (RG06-bandbreedte)', () => {
+    const [a] = applyLightSession([slot(1, 6)]);
+
+    expect([a.targetSets, a.targetReps]).toEqual([1, 6]);
   });
 });

@@ -30,6 +30,8 @@ export class AiCoachService {
     motivationSignal: MotivationSignal;
     hasRecentlyLoadedPattern: boolean;
     hadRecentReplace: boolean;
+    /** Fase 8: energie-check "weinig energie" → Light Session. */
+    isLowEnergy?: boolean;
   }): string {
     // Volgorde = belangrijkste/meest urgente reden eerst.
     if (input.motivationSignal === 'RETURN_AFTER_ABSENCE') {
@@ -37,6 +39,11 @@ export class AiCoachService {
     }
     if (input.hadRecentReplace) {
       return 'Je gaf eerder aan dat een oefening niet lekker voelde — we hebben daarom een alternatief gekozen.';
+    }
+    // v2.0 test 08: niet "gewoon doorzetten", maar "we maken het vandaag
+    // wat lichter"; v2.4.5: Light Session ≠ slechte training.
+    if (input.isLowEnergy) {
+      return 'Weinig energie vandaag? Dan maken we het wat lichter: minder sets, iets minder herhalingen en meer rust. Ook een lichte training telt mee.';
     }
     if (input.hasRecentlyLoadedPattern) {
       return 'Je hebt de afgelopen dagen al stevig getraind, dus vandaag houden we het op die onderdelen iets lichter.';

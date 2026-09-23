@@ -223,6 +223,21 @@ describe('AiCoachService', () => {
     });
   });
 
+  describe('explainTodaysWorkout bij lage energie (Fase 8)', () => {
+    it('zegt "wat lichter" en brengt het nooit als falen (v2.0 test 08 / v2.4.5)', () => {
+      const message = service.explainTodaysWorkout({
+        motivationSignal: 'NORMAL',
+        hasRecentlyLoadedPattern: false,
+        hadRecentReplace: false,
+        isLowEnergy: true,
+      });
+
+      expect(message).toContain('lichter');
+      expect(message).toContain('telt mee');
+      expect(message).not.toMatch(/doorzetten|moet/i);
+    });
+  });
+
   describe('explainQuickSession', () => {
     it('noemt de geschatte tijd en brengt een korte training nooit als mislukking (v0.8.11)', () => {
       const message = service.explainQuickSession({ estimatedMinutes: 10, exerciseCount: 4, hadRecentReplace: false });

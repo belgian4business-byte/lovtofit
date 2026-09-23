@@ -4,7 +4,7 @@ import { ProgressionEngineService } from './progression-engine.service.js';
 describe('ProgressionEngineService', () => {
   let prisma: {
     exerciseFeedback: { findMany: ReturnType<typeof vi.fn> };
-    exerciseProgression: { create: ReturnType<typeof vi.fn> };
+    exerciseProgression: { create: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
   };
   let service: ProgressionEngineService;
 
@@ -20,7 +20,7 @@ describe('ProgressionEngineService', () => {
   beforeEach(() => {
     prisma = {
       exerciseFeedback: { findMany: vi.fn().mockResolvedValue([]) },
-      exerciseProgression: { create: vi.fn().mockResolvedValue({}) },
+      exerciseProgression: { create: vi.fn().mockResolvedValue({}), findFirst: vi.fn().mockResolvedValue(null) },
     };
     service = new ProgressionEngineService(prisma as never);
   });
@@ -113,6 +113,66 @@ describe('ProgressionEngineService', () => {
 
     expect(prisma.exerciseProgression.create).toHaveBeenCalledWith({
       data: { userId: 'user-1', exerciseId: 'ex-1', sessionId: 'session-1', decision: 'REPLACE' },
+    });
+  });
+
+  describe('Light Session (energie LOW, Fase 8)', () => {
+    it('slaat geen nieuwe beslissing op en neemt de vorige over (progressie gaat daarna gewoon verder)', async () => {
+      prisma.exerciseProgression.findFirst.mockResolvedValue({ decision: 'INCREASE' });
+
+      const result = await service.evaluateSession(
+        'user-1',
+        'session-1',
+        sets,
+        [{ exerciseId: 'ex-1', difficulty: 'TOO_HARD', discomfort: false }],
+        'LOW',
+      );
+
+      expect(result).toEqual([{ exerciseId: 'ex-1', decision: 'INCREASE' }]);
+      expect(prisma.exerciseProgression.create).not.toHaveBeenCalled();
+      expect(prisma.exerciseFeedback.findMany).not.toHaveBeenCalled();
+    });
+
+    it('zonder eerdere beslissing: KEEP, ook niet opgeslagen', async () => {
+      const result = await service.evaluateSession(
+        'user-1',
+        'session-1',
+        sets,
+        [{ exerciseId: 'ex-1', difficulty: 'GOOD', discomfort: false }],
+        'LOW',
+      );
+
+      expect(result).toEqual([{ exerciseId: 'ex-1', decision: 'KEEP' }]);
+      expect(prisma.exerciseProgression.create).not.toHaveBeenCalled();
+    });
+
+    it('pijn/ongemak telt altijd: REPLACE wordt ook bij lage energie opgeslagen', async () => {
+      const result = await service.evaluateSession(
+        'user-1',
+        'session-1',
+        sets,
+        [{ exerciseId: 'ex-1', difficulty: 'GOOD', discomfort: true }],
+        'LOW',
+      );
+
+      expect(result).toEqual([{ exerciseId: 'ex-1', decision: 'REPLACE' }]);
+      expect(prisma.exerciseProgression.create).toHaveBeenCalledWith({
+        data: { userId: 'user-1', exerciseId: 'ex-1', sessionId: 'session-1', decision: 'REPLACE' },
+      });
+    });
+
+    it('een normale training vergelijkt nooit met een eerdere Light Session', async () => {
+      await service.evaluateSession('user-1', 'session-2', sets, [
+        { exerciseId: 'ex-1', difficulty: 'GOOD', discomfort: false },
+      ]);
+
+      expect(prisma.exerciseFeedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session: { userId: 'user-1', OR: [{ energyLevel: null }, { energyLevel: { not: 'LOW' } }] },
+          }),
+        }),
+      );
     });
   });
 });

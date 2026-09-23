@@ -734,3 +734,88 @@ de progressie niet verstoort. Een FREE-gebruiker ziet op dat moment een
 rustige vergrendelde teaser en kan via de proefperiode direct verder; de
 normale training blijft altijd gratis. Eén consistente lijst van
 tijdkeuzes (10/15) in backend en app.
+
+### FASE 8 — Energie check-in (modifier)
+Doel: bij het starten van een training vraagt de app kort de energie/gesteldheid, en past de training licht aan. Het is een modifier bovenop de bestaande engines — het overrulet nooit de veiligheid of de Rule Guard. Eén stap per keer.
+1. Backend: energie-input (bv. Laag / Normaal / Hoog) opslaan bij de sessie, en de training licht aanpassen (bv. lage energie → minder volume/lichtere variant; hoge energie → normaal of iets meer). Altijd binnen de Rule Guard.
+2. Flutter: één snel keuzescherm "Hoe voel je je vandaag?" vóór de training start (overslaan mag).
+3. De aanpassing zichtbaar maken ("Aangepast aan je energie vandaag").
+Regel: licht houden, geen dagboek; de energie-check is optioneel.
+
+Voortgang Fase 8:
+1. (klaar) Backend: energie-check + Light Session. Bron: blueprint v0.7.11
+   / v0.9.11 (😄 Goed / 😐 Normaal / 😴 Weinig energie → Light Session),
+   v0.6 §10 (3×12 → 2×10, langere rust, eenvoudige oefeningen), v1.9 #23,
+   v2.0 test 08, v2.4.5 ("Light Session ≠ slechte training"), v2.0 §13
+   (`energy_feedback` bij de sessie). Nieuwe enum `EnergyLevel`
+   (LOW/NORMAL/HIGH) + nullable `WorkoutSession.energyLevel` (null =
+   overgeslagen; migratie `add_session_energy_level`).
+   `GET /workouts/today?energy=LOW|NORMAL|HIGH` (optioneel): alleen LOW
+   past aan via de pure functie `applyLightSession()` (max. 2 sets, reps
+   −2 met ondergrens 6, 60 s rust i.p.v. 45) + `preferLightestVariant` in
+   de scoring (lichtste variant voor elk patroon); géén oefeningen
+   weggelaten. Modifier bovenop dezelfde beslisladder (pijn-uitsluiting
+   blijft), daarna de Rule Guard (nieuwe optionele `restSeconds` in de
+   context voor de RG04-schatting). Response + `energyLevel`,
+   `energyAdjusted`, `restSeconds`. `POST /workouts/sessions` accepteert
+   en bewaart `energyLevel`. Progression Engine: een Light Session slaat
+   géén nieuwe beslissing op (neemt de vorige over, zodat bv. een eerdere
+   INCREASE blijft staan — v0.8.11-principe) en een normale training
+   vergelijkt nooit met een Light Session (history-query: `energyLevel`
+   null OF niet LOW — expliciete OR, want `not: LOW` sluit in SQL ook
+   null uit); pijn/ongemak (REPLACE) wordt altijd opgeslagen.
+   `AiCoachService.explainTodaysWorkout()` kreeg `isLowEnergy` ("…maken we
+   het wat lichter… Ook een lichte training telt mee.").
+   Afspraken: hoge energie = normale training (geen extra volume — staat
+   niet in de blueprint, de Progression Engine bepaalt wanneer er meer
+   bij kan); Quick Session negeert de energie-check (die is zelf al de
+   "korte training"-optie, v1.9 §21); Light Session voorlopig **gratis**
+   (blueprint noemt het Premium, v1.1.7/v1.1.19 — later eventueel via
+   `FeatureAccessService`).
+   Live geverifieerd: geen check/NORMAL/HIGH → 5×3×12, 45 s; LOW → 5×2×10,
+   60 s, geen RG-waarschuwingen; Light Session opslaan → 0 progressie-
+   rijen; normale training daarna (12 > 10 reps) → KEEP, geen onterechte
+   INCREASE.
+
+**Openstaand (losse stap ná Fase 8): coach-tekst bij vervangen oefening.**
+Ontdekt tijdens Fase 8, stap 1. `hadRecentReplace` wordt afgeleid uit
+`decisionByChosenExercise`, dat alleen de beslissing van de *gekozen*
+oefening bevat. Daardoor verschijnt "…we hebben daarom een alternatief
+gekozen" alleen als de pijnlijke oefening tóch gekozen werd (fallback
+zonder alternatief) — precies omgekeerd — en blijft de uitleg weg bij een
+echte vervanging. Zit er sinds Fase 3 stap 7 in; in Fase 7 overgenomen
+in `getQuickSession()` (`explainQuickSession`). De oefeningkeuze zelf is
+correct. Oplossing: per slot bijhouden of er een kandidaat met REPLACE is
+uitgesloten, en de coach-tekst daarop baseren (RG09 blijft op de gekozen
+oefening).
+2. (klaar) Flutter: keuzescherm "Hoe voel je je vandaag?" (nieuw
+   `lib/widgets/energy_check_sheet.dart`, `showEnergyCheckSheet()`): 😄
+   Goed / 😐 Normaal / 😴 Weinig energie (labels v0.7.11 → HIGH/NORMAL/LOW)
+   + "Overslaan", met één eerlijke zin ("Bij weinig energie maken we je
+   training wat lichter."). START TRAINING op de Train-tab opent het eerst:
+   bij een keuze haalt de app `GET /workouts/today?energy=…` opnieuw op (de
+   backend beslist wat er verandert) en start daarmee; Overslaan start de
+   al geladen training ongewijzigd; wegvegen = niet starten. Twee tikken
+   van START tot trainen. Quick Session start zonder check (afspraak 2).
+   `WorkoutScreen` kreeg `energyLevel` en stuurt die mee bij
+   `POST /workouts/sessions`.
+   Live geverifieerd op de telefoon: Weinig energie → 2 sets, 2 reps
+   minder, rust 01:00; Overslaan → 3 sets, 00:45. In de database staat de
+   energie bij de sessie (bv. `HIGH`, 15 sets); sessies van vóór Fase 8
+   hebben `null`.
+3. (klaar) De aanpassing zichtbaar: `WorkoutScreen` kreeg
+   `energyAdjusted` (rechtstreeks uit de backend-response, de app beslist
+   dit niet zelf) en toont dan bovenaan, de hele training lang, een rustige
+   melding "🌿 Aangepast aan je energie vandaag — Minder sets, iets minder
+   herhalingen en meer rust." (v2.4.5: lichter ≠ slechter). Geen melding
+   bij Goed/Normaal/Overslaan/Quick Session.
+   Live geverifieerd op de telefoon.
+
+Bewezen: vóór een normale training vraagt de app in één tik "Hoe voel je
+je vandaag?" (overslaan mag, geen dagboek). Bij weinig energie maakt de
+backend er een Light Session van — zelfde veilige oefeningkeuze (pijn-
+uitsluiting blijft), lichtste varianten, 2 sets, 2 reps minder, 60 s rust
+— die door de Rule Guard gaat, zichtbaar is voor de gebruiker, bij de
+sessie wordt opgeslagen, en de progressie niet verstoort (geen nieuwe
+beslissing, nooit een vergelijkingspunt; pijn telt wel altijd). Goed/
+Normaal = de normale training; Quick Session blijft zonder check.

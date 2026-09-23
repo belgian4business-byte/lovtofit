@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'theme/app_theme.dart';
+import 'widgets/energy_check_sheet.dart';
 import 'widgets/premium_teaser_card.dart';
 import 'widgets/settings_menu_button.dart';
 import 'workout_models.dart';
@@ -72,6 +73,7 @@ class _TrainScreenState extends State<TrainScreen> {
   String? _templateName;
   List<WorkoutExercise> _exercises = [];
 
+  bool _isStartingTraining = false;
   bool _isLoadingQuickSession = false;
   _QuickSession? _quickSession;
   int? _lastQuickSessionMinutes;
@@ -204,15 +206,75 @@ class _TrainScreenState extends State<TrainScreen> {
     }
   }
 
-  void _startTraining() {
-    final quickSession = _quickSession;
+  /// Quick Session: meteen starten — die is zelf al de "korte training"-
+  /// optie en slaat de energie-check over (CLAUDE.md Fase 8, afspraak 2).
+  void _startQuickSession(_QuickSession quickSession) {
+    _openWorkout(
+      templateId: quickSession.templateId,
+      exercises: quickSession.exercises,
+      restSeconds: quickSession.restSeconds,
+    );
+  }
+
+  /// Normale training: eerst de optionele energie-check (Fase 8, stap 2).
+  Future<void> _startTraining() async {
+    final choice = await showEnergyCheckSheet(context);
+    if (choice == null || !mounted) return; // weggeveegd = niet starten
+
+    final level = choice.level;
+    if (level == null) {
+      // Overslaan: de training die al klaarstaat, ongewijzigd.
+      _openWorkout(templateId: _templateId!, exercises: _exercises, restSeconds: 45);
+      return;
+    }
+
+    // De backend beslist wat de energie verandert (nu alleen LOW → Light
+    // Session); de app haalt de training daarom opnieuw op.
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isStartingTraining = true);
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_todayUrl?energy=$level'),
+            headers: {'Authorization': 'Bearer ${widget.accessToken}'},
+          )
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        _openWorkout(
+          templateId: body['templateId'] as String,
+          exercises: _parseExercises(body['slots'] as List),
+          restSeconds: body['restSeconds'] as int,
+          energyLevel: level,
+          energyAdjusted: body['energyAdjusted'] as bool? ?? false,
+        );
+        return;
+      }
+      messenger.showSnackBar(const SnackBar(content: Text('Kon je training niet aanpassen. Probeer het opnieuw.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('Kan geen verbinding maken met de server.')));
+    } finally {
+      if (mounted) setState(() => _isStartingTraining = false);
+    }
+  }
+
+  void _openWorkout({
+    required String templateId,
+    required List<WorkoutExercise> exercises,
+    required int restSeconds,
+    String? energyLevel,
+    bool energyAdjusted = false,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => WorkoutScreen(
           accessToken: widget.accessToken,
-          templateId: quickSession?.templateId ?? _templateId!,
-          exercises: quickSession?.exercises ?? _exercises,
-          restSeconds: quickSession?.restSeconds ?? 45,
+          templateId: templateId,
+          exercises: exercises,
+          restSeconds: restSeconds,
+          energyLevel: energyLevel,
+          energyAdjusted: energyAdjusted,
         ),
       ),
     );
@@ -295,7 +357,12 @@ class _TrainScreenState extends State<TrainScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        AppGradientButton(onPressed: _startTraining, child: const Text('START TRAINING')),
+        AppGradientButton(
+          onPressed: _isStartingTraining ? null : _startTraining,
+          child: _isStartingTraining
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('START TRAINING'),
+        ),
         const SizedBox(height: 12),
         if (_quickSessionLockedMessage != null)
           PremiumTeaserCard(
@@ -355,7 +422,10 @@ class _TrainScreenState extends State<TrainScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        AppGradientButton(onPressed: _startTraining, child: const Text('START QUICK SESSION')),
+        AppGradientButton(
+          onPressed: () => _startQuickSession(quickSession),
+          child: const Text('START QUICK SESSION'),
+        ),
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => setState(() => _quickSession = null),

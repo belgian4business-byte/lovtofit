@@ -70,6 +70,8 @@ class WorkoutScreen extends StatefulWidget {
     required this.templateId,
     required this.exercises,
     this.restSeconds = 45,
+    this.energyLevel,
+    this.energyAdjusted = false,
   });
 
   final String accessToken;
@@ -79,6 +81,14 @@ class WorkoutScreen extends StatefulWidget {
   /// Rust na elke set. Een Quick Session gebruikt kortere rust (30 s, komt
   /// mee van de backend — "beperkte rust", blueprint v0.7.10).
   final int restSeconds;
+
+  /// Energie-check vóór de training (LOW/NORMAL/HIGH), wordt mee opgeslagen
+  /// bij de sessie; `null` = overgeslagen of Quick Session.
+  final String? energyLevel;
+
+  /// De backend heeft de training aangepast aan de energie (Light Session,
+  /// `energyAdjusted`) — dan staat er bovenaan een melding (Fase 8, stap 3).
+  final bool energyAdjusted;
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -211,6 +221,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             },
             body: jsonEncode({
               'templateId': widget.templateId,
+              if (widget.energyLevel != null) 'energyLevel': widget.energyLevel,
               'sets': _log
                   .map(
                     (set) => {
@@ -267,7 +278,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           constraints: const BoxConstraints(maxWidth: 400),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(child: _buildPhase(context)),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.energyAdjusted) ...[
+                    const _EnergyAdjustedBanner(),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildPhase(context),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -566,6 +588,43 @@ class _NumberStepper extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// "Aangepast aan je energie vandaag" (Fase 8, stap 3). Rustig en positief:
+/// een lichtere training is geen slechtere training (blueprint v2.4.5).
+class _EnergyAdjustedBanner extends StatelessWidget {
+  const _EnergyAdjustedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.highlight.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Text('🌿', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aangepast aan je energie vandaag',
+                  style: textTheme.titleSmall?.copyWith(color: AppColors.highlight),
+                ),
+                const SizedBox(height: 2),
+                Text('Minder sets, iets minder herhalingen en meer rust.', style: textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -24,6 +24,7 @@ export class WorkoutSessionsService {
       data: {
         userId,
         templateId: dto.templateId,
+        energyLevel: dto.energyLevel,
         loggedSets: {
           create: dto.sets.map((set) => ({
             exerciseId: set.exerciseId,
@@ -48,6 +49,7 @@ export class WorkoutSessionsService {
       session.id,
       dto.sets,
       dto.feedback,
+      dto.energyLevel,
     );
 
     const motivation = await this.motivationEngine.getStatus(userId);
