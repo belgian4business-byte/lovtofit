@@ -155,6 +155,10 @@ model Exercise {
   equipment       ExerciseEquipment
   level           ExperienceLevel
   location        ExerciseLocation  @default(ANYWHERE)
+  // Sleutel van de oefening-foto in de app:
+  // frontend/assets/exercises/lovtofit_<imageKey>_<man|vrouw|duo>.webp.
+  // null = nog geen foto (de app toont een placeholder).
+  imageKey        String?
   createdAt       DateTime          @default(now())
 
   loggedSets   LoggedSet[]

@@ -59,6 +59,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Oefening-foto's (WebP, 800 px). De app toont nu de duo-variant.
+  assets:
+    - assets/exercises/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

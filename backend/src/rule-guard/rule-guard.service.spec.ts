@@ -18,6 +18,7 @@ describe('RuleGuardService', () => {
       equipment: 'BODYWEIGHT',
       level: 'BEGINNER',
       location: 'ANYWHERE',
+      imageKey: 'squats',
     },
   };
 

@@ -14,30 +14,35 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * core-rotatie, §8 cardio incl. "Fitness: Treadmill", §9 mobiliteit =
  * warming-up/cooldown). Totaal nu 35 — ruim binnen de MVP-grens.
  * `location` is standaard ANYWHERE; alleen hardlopen/sprints zijn OUTDOOR.
+ * `imageKey` koppelt een oefening vast aan zijn foto
+ * (lovtofit_<imageKey>_<variant>.webp); zonder imageKey toont de app een
+ * placeholder. Bewust nog zonder foto: Reverse/Walking Lunge (de foto
+ * "lunges" toont een stilstaande lunge) en Dumbbell Chest Press (de foto
+ * "bankdrukken" toont een halterstang, geen losse halters).
  */
 export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   // Push — borst
   { name: 'Wall Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
   { name: 'Knee Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Push-up', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'push_ups' },
   { name: 'Dumbbell Chest Press', muscleGroup: 'CHEST', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'INTERMEDIATE' },
 
   // Push — schouders
   { name: 'Pike Push-up', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
-  { name: 'Dumbbell Shoulder Press', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'BEGINNER' },
+  { name: 'Dumbbell Shoulder Press', muscleGroup: 'SHOULDERS', movementPattern: 'PUSH', equipment: 'DUMBBELL', level: 'BEGINNER', imageKey: 'schouderpers' },
 
   // Pull — rug
   { name: 'Inverted Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Dumbbell Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'DUMBBELL', level: 'BEGINNER' },
-  { name: 'Lat Pulldown', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'MACHINE_CABLE', level: 'BEGINNER' },
+  { name: 'Dumbbell Row', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'DUMBBELL', level: 'BEGINNER', imageKey: 'dumbbell_row' },
+  { name: 'Lat Pulldown', muscleGroup: 'BACK', movementPattern: 'PULL', equipment: 'MACHINE_CABLE', level: 'BEGINNER', imageKey: 'latpulldown' },
 
   // Squat — benen & billen
-  { name: 'Bodyweight Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Bodyweight Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'squats' },
   { name: 'Goblet Squat', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'DUMBBELL', level: 'BEGINNER' },
-  { name: 'Leg Press', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'MACHINE_CABLE', level: 'BEGINNER' },
+  { name: 'Leg Press', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'MACHINE_CABLE', level: 'BEGINNER', imageKey: 'beenpers' },
 
   // Hinge — benen & billen
-  { name: 'Glute Bridge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Glute Bridge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'glute_bridge' },
   { name: 'Romanian Deadlift', muscleGroup: 'LEGS_GLUTES', movementPattern: 'HINGE', equipment: 'DUMBBELL', level: 'INTERMEDIATE' },
 
   // Lunge — benen & billen
@@ -45,32 +50,32 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   { name: 'Walking Lunge', muscleGroup: 'LEGS_GLUTES', movementPattern: 'LUNGE', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
 
   // Core
-  { name: 'Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'plank' },
   { name: 'Dead Bug', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
   { name: 'Side Plank', muscleGroup: 'CORE', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
-  { name: 'Superman', muscleGroup: 'BACK', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Bicycle Crunches', muscleGroup: 'CORE', movementPattern: 'ROTATION', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Superman', muscleGroup: 'BACK', movementPattern: 'CORE_STABILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'superman' },
+  { name: 'Bicycle Crunches', muscleGroup: 'CORE', movementPattern: 'ROTATION', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'bicycle_crunches' },
 
   // Squat (isometrisch) — benen & billen
-  { name: 'Wall Sit', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Wall Sit', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'wall_sit' },
 
   // Cardio
-  { name: 'Jumping Jacks', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'High Knees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Mountain Climbers', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Burpees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE' },
+  { name: 'Jumping Jacks', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'jumping_jacks' },
+  { name: 'High Knees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'high_knees' },
+  { name: 'Mountain Climbers', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'mountain_climbers' },
+  { name: 'Burpees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'burpees' },
   // Trap op en af: thuis of buiten, overal waar een trap is.
-  { name: 'Stair Climbs', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Stair Climbs', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'trap_op_af' },
   // Alleen in de fitness (loopband).
-  { name: 'Treadmill Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'TREADMILL', level: 'BEGINNER' },
+  { name: 'Treadmill Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'TREADMILL', level: 'BEGINNER', imageKey: 'loopband_interval' },
   // Alleen buiten.
-  { name: 'Running Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', location: 'OUTDOOR' },
-  { name: 'Sprints', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', location: 'OUTDOOR' },
+  { name: 'Running Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', location: 'OUTDOOR', imageKey: 'hardlopen_interval' },
+  { name: 'Sprints', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', location: 'OUTDOOR', imageKey: 'sprints' },
 
   // Mobiliteit & herstel (warming-up, cooldown, rustdag — v0.5 §9)
-  { name: 'Cat-Cow', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Downward Dog', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Hip Circles', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: 'Standing Forward Fold', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
-  { name: "World's Greatest Stretch", muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER' },
+  { name: 'Cat-Cow', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'cat_cow' },
+  { name: 'Downward Dog', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'downward_dog' },
+  { name: 'Hip Circles', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'heupcirkels' },
+  { name: 'Standing Forward Fold', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'voorwaartse_stretch' },
+  { name: "World's Greatest Stretch", muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'worlds_greatest_stretch' },
 ];

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'theme/app_theme.dart';
+import 'widgets/exercise_photo.dart';
 import 'workout_models.dart';
 
 enum _Phase { logging, resting, exerciseComplete, workoutComplete }
@@ -314,6 +315,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Begrensde hoogte: "SET KLAAR" moet ook op een kleine telefoon
+        // zonder scrollen in beeld blijven (afvinken in max. 2 tikken).
+        SizedBox(height: 160, child: ExercisePhoto(imageKey: _exercise.imageKey)),
+        const SizedBox(height: 16),
         Text(
           'Oefening ${_exerciseIndex + 1} van ${widget.exercises.length}',
           style: Theme.of(context).textTheme.bodyMedium,
@@ -566,7 +571,9 @@ class _NumberStepper extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodyLarge),
+        // Flexibel: bij grote systeemletters breekt het label af i.p.v.
+        // de knoppen van het scherm te duwen.
+        Flexible(child: Text(label, style: Theme.of(context).textTheme.bodyLarge)),
         Row(
           children: [
             IconButton(

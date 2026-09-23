@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'theme/app_theme.dart';
 import 'widgets/energy_check_sheet.dart';
+import 'widgets/exercise_photo.dart';
 import 'widgets/premium_teaser_card.dart';
 import 'widgets/settings_menu_button.dart';
 import 'workout_models.dart';
@@ -25,6 +26,7 @@ List<WorkoutExercise> _parseExercises(List<dynamic> slots) {
       equipment: exercise['equipment'] as String,
       targetSets: slot['targetSets'] as int,
       targetReps: slot['targetReps'] as int,
+      imageKey: exercise['imageKey'] as String?,
     );
   }).toList();
 }
@@ -280,6 +282,20 @@ class _TrainScreenState extends State<TrainScreen> {
     );
   }
 
+  // Kleine foto (of placeholder) + naam, zodat je al ziet wat er komt.
+  Widget _buildExerciseRow(WorkoutExercise exercise, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          ExercisePhoto(imageKey: exercise.imageKey, width: 48, height: 32, borderRadius: 6, compact: true),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -347,11 +363,7 @@ class _TrainScreenState extends State<TrainScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
-                for (final exercise in _exercises)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text('•  ${exercise.name}'),
-                  ),
+                for (final exercise in _exercises) _buildExerciseRow(exercise, exercise.name),
               ],
             ),
           ),
@@ -413,10 +425,7 @@ class _TrainScreenState extends State<TrainScreen> {
                 Text(quickSession.coachMessage, style: textTheme.bodyMedium),
                 const SizedBox(height: 16),
                 for (final exercise in quickSession.exercises)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text('•  ${exercise.name}  ·  ${exercise.targetSets}×${exercise.targetReps}'),
-                  ),
+                  _buildExerciseRow(exercise, '${exercise.name}  ·  ${exercise.targetSets}×${exercise.targetReps}'),
               ],
             ),
           ),

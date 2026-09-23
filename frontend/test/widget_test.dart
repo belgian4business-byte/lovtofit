@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,7 @@ import 'package:lovtofit_app/register_screen.dart';
 import 'package:lovtofit_app/theme/app_theme.dart';
 import 'package:lovtofit_app/train_screen.dart';
 import 'package:lovtofit_app/widgets/energy_check_sheet.dart';
+import 'package:lovtofit_app/widgets/exercise_photo.dart';
 import 'package:lovtofit_app/widgets/premium_teaser_card.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
@@ -202,7 +204,57 @@ void main() {
     });
   });
 
+  group('ExercisePhoto', () {
+    Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: Center(child: child)));
+
+    testWidgets('toont de duo-foto die bij de imageKey hoort', (tester) async {
+      await tester.pumpWidget(wrap(const ExercisePhoto(imageKey: 'squats', width: 300, height: 200)));
+
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as AssetImage).assetName, 'assets/exercises/lovtofit_squats_duo.webp');
+      expect(find.text('Foto volgt binnenkort'), findsNothing);
+    });
+
+    testWidgets('zonder foto: nette placeholder met tekst, geen afbeelding', (tester) async {
+      await tester.pumpWidget(wrap(const ExercisePhoto(imageKey: null, width: 300, height: 200)));
+
+      expect(find.byType(Image), findsNothing);
+      expect(find.byKey(const ValueKey('exercise-photo-placeholder')), findsOneWidget);
+      expect(find.text('Foto volgt binnenkort'), findsOneWidget);
+    });
+
+    testWidgets('compacte placeholder (lijstjes): alleen een icoon', (tester) async {
+      await tester.pumpWidget(wrap(const ExercisePhoto(imageKey: null, width: 48, height: 32, compact: true)));
+
+      expect(find.byIcon(Icons.fitness_center), findsOneWidget);
+      expect(find.text('Foto volgt binnenkort'), findsNothing);
+    });
+
+    test('elke foto-sleutel uit de seed heeft een duo-bestand in assets/exercises', () {
+      final seed = File('../backend/prisma/seed-data/exercises.ts').readAsStringSync();
+      final keys = RegExp(r"imageKey: '([a-z_]+)'").allMatches(seed).map((m) => m.group(1)!).toList();
+
+      expect(keys, hasLength(24));
+      for (final key in keys) {
+        expect(File(exercisePhotoAsset(key)).existsSync(), isTrue, reason: 'ontbreekt: ${exercisePhotoAsset(key)}');
+      }
+    });
+  });
+
   group('WorkoutScreen', () {
+    // Telefoonformaat (zoals de CPH2247: 393×873 punten) i.p.v. het
+    // standaard testvenster van 800×600.
+    setUp(() {
+      final view = TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+      view.physicalSize = const Size(393, 873);
+      view.devicePixelRatio = 1;
+    });
+    tearDown(() {
+      final view = TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+      view.resetPhysicalSize();
+      view.resetDevicePixelRatio();
+    });
+
     const exercises = [
       WorkoutExercise(
         id: 'exercise-1',
@@ -210,6 +262,7 @@ void main() {
         equipment: 'BODYWEIGHT',
         targetSets: 2,
         targetReps: 5,
+        imageKey: 'squats',
       ),
       WorkoutExercise(
         id: 'exercise-2',
@@ -227,6 +280,44 @@ void main() {
         exercises: exercises,
       ),
     );
+
+    testWidgets('toont de oefening-foto boven de oefening, of de placeholder als er geen is', (tester) async {
+      await tester.pumpWidget(buildWorkoutScreen());
+
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as AssetImage).assetName, 'assets/exercises/lovtofit_squats_duo.webp');
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorkoutScreen(
+            key: ValueKey('zonder-foto'),
+            accessToken: 'test-token',
+            templateId: 'template-1',
+            exercises: [WorkoutExercise(id: 'x', name: 'Dead Bug', equipment: 'BODYWEIGHT', targetSets: 1, targetReps: 8)],
+          ),
+        ),
+      );
+      expect(find.text('Foto volgt binnenkort'), findsOneWidget);
+    });
+
+    testWidgets('"SET KLAAR" blijft zonder scrollen in beeld, ook op een kleine telefoon (360×640)', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorkoutScreen(
+            accessToken: 'test-token',
+            templateId: 'template-1',
+            // Met gewicht: de hoogste variant van het scherm.
+            exercises: [
+              WorkoutExercise(id: 'x', name: 'Dumbbell Row', equipment: 'DUMBBELL', targetSets: 3, targetReps: 10, imageKey: 'dumbbell_row'),
+            ],
+          ),
+        ),
+      );
+
+      final button = tester.getRect(find.text('SET KLAAR'));
+      expect(button.bottom, lessThanOrEqualTo(640));
+    });
 
     testWidgets('toont "Aangepast aan je energie vandaag" alleen als de backend de training aanpaste', (
       WidgetTester tester,

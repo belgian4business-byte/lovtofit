@@ -89,6 +89,8 @@ export interface TodaysWorkoutSlot {
     equipment: string;
     level: string;
     location: string;
+    /** Foto-sleutel (lovtofit_<imageKey>_<variant>.webp); null = placeholder. */
+    imageKey: string | null;
   };
 }
 
@@ -512,6 +514,7 @@ export class DecisionEngineService {
           equipment: chosen.equipment,
           level: chosen.level,
           location: chosen.location,
+          imageKey: chosen.imageKey ?? null,
         },
       });
     }

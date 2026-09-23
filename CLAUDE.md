@@ -913,6 +913,20 @@ vrouw/duo) in de app tonen. In stappen.
    en trainingslocatie `OUTDOOR`. Regels in de Decision Engine (filter) én
    de Rule Guard (RG02): gym-apparaten alleen GYM/BOTH, buitenoefeningen
    alleen OUTDOOR, wie buiten traint krijgt geen gym-apparaten.
+3. (klaar) Foto's gekoppeld. Vaste koppeling in de seed: `Exercise.imageKey`
+   (migratie `add_exercise_image_key`), bv. Bodyweight Squat = `squats`;
+   24 van de 35 oefeningen hebben een foto. De API geeft `imageKey` mee in
+   de workout-slots. App: widget `ExercisePhoto`
+   (`lib/widgets/exercise_photo.dart`) toont
+   `assets/exercises/lovtofit_<imageKey>_duo.webp` (variant in één
+   constante `exercisePhotoVariant`, duo = standaard), anders een
+   placeholder (halter-icoon, "Foto volgt binnenkort"; ook bij een
+   ontbrekend bestand). Groot in het workout-scherm (max. 160 hoog, zodat
+   "SET KLAAR" ook op 360×640 zonder scrollen in beeld blijft — getest),
+   klein naast elke oefening op de Train-tab (ook Quick Session). Bewust
+   nog zonder foto: Reverse/Walking Lunge (foto toont een stilstaande
+   lunge) en Dumbbell Chest Press (foto toont een halterstang). Getest op
+   de telefoon.
 
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
