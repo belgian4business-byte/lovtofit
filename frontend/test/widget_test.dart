@@ -162,6 +162,34 @@ void main() {
       ),
     );
 
+    testWidgets('gebruikt standaard 45 s rust, en de kortere Quick Session-rust als die meekomt', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWorkoutScreen());
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
+      await tester.pump();
+      expect(find.text('00:45'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorkoutScreen(
+            key: ValueKey('quick'),
+            accessToken: 'test-token',
+            templateId: 'template-1',
+            exercises: exercises,
+            restSeconds: 30,
+          ),
+        ),
+      );
+      await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
+      await tester.pump();
+      expect(find.text('00:30'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+      await tester.pump();
+    });
+
     testWidgets('logt een set in één tik, rust daarna, en gaat dan naar de volgende set', (
       WidgetTester tester,
     ) async {
@@ -361,6 +389,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Jij traint. Wij denken mee.'), findsOneWidget);
+      expect(find.text('Quick Session'), findsOneWidget);
+      expect(find.text('Persoonlijk caloriedoel'), findsOneWidget);
       expect(find.textContaining('blijven altijd gratis'), findsOneWidget);
       expect(find.widgetWithText(AppGradientButton, 'Probeer 7 dagen gratis'), findsOneWidget);
 

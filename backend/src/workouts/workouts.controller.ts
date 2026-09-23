@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { DecisionEngineService } from '../decision-engine/decision-engine.service.js';
+import { QuickSessionQueryDto } from './dto/quick-session-query.dto.js';
 import { SaveWorkoutSessionDto } from './dto/save-workout-session.dto.js';
 import { WorkoutSessionsService } from './workout-sessions.service.js';
 
@@ -17,6 +18,12 @@ export class WorkoutsController {
   @Get('today')
   getToday(@CurrentUser() user: AuthenticatedUser) {
     return this.decisionEngine.getTodaysWorkout(user.id);
+  }
+
+  // Premium (CAN_USE_QUICK_SESSION): de check zit in de Decision Engine zelf.
+  @Get('quick-session')
+  getQuickSession(@CurrentUser() user: AuthenticatedUser, @Query() query: QuickSessionQueryDto) {
+    return this.decisionEngine.getQuickSession(user.id, query.minutes);
   }
 
   @Post('sessions')

@@ -8,6 +8,13 @@ export interface RuleGuardContext {
   preferences: Pick<TrainingPreferences, 'location' | 'equipment' | 'level' | 'sessionDuration'>;
   recoveryByPattern: Map<string, RecoveryStatus>;
   decisionByChosenExercise: Map<string, ProgressionDecision | undefined>;
+  /**
+   * Quick Session (CLAUDE.md Fase 7): de gebruiker koos zelf hoeveel tijd hij
+   * vandaag heeft. Dan is de tijd een harde grens (blueprint v2.5.4) en is
+   * RG04 een blokkerende controle i.p.v. een waarschuwing — er bestaat nu
+   * immers een manier om het op te lossen (inkorten).
+   */
+  timeLimit?: { minutes: number; restSeconds: number };
 }
 
 export interface RuleGuardResult {
@@ -16,8 +23,9 @@ export interface RuleGuardResult {
   violations: string[];
   /**
    * Situaties die de blueprint als "harde controle" noemt, maar die hier
-   * afhangen van functionaliteit die nog niet bestaat (Quick Session,
-   * oefening-vervangflow) of een bewust gedocumenteerde uitzondering
+   * afhangen van functionaliteit die nog niet bestaat (oefening-
+   * vervangflow), die de gebruiker zelf kan oplossen (RG04 bij een normale
+   * training → Quick Session) of een bewust gedocumenteerde uitzondering
    * hebben (kleine oefeningenbibliotheek). Worden gemeld, blokkeren niet.
    */
   warnings: string[];
@@ -37,8 +45,15 @@ const SESSION_DURATION_MINUTES: Record<SessionDuration, number> = {
 };
 
 // Grove schatting: uitvoeringstijd + rust per set. Geen exacte wetenschap,
-// enkel genoeg om een duidelijke mismatch te signaleren (RG04).
-const SECONDS_PER_SET = 40 + 45;
+// enkel genoeg om een duidelijke mismatch te signaleren (RG04). Eén plek
+// voor de schatting, zodat de Decision Engine een Quick Session met precies
+// dezelfde rekensom inkort als waarmee de Rule Guard hem controleert.
+const WORK_SECONDS_PER_SET = 40;
+export const NORMAL_REST_SECONDS = 45;
+
+export function estimateWorkoutSeconds(totalSets: number, restSeconds: number): number {
+  return totalSets * (WORK_SECONDS_PER_SET + restSeconds);
+}
 
 /**
  * Rule Guard (CLAUDE.md Fase 3, stap 5; bron: blueprint v2.06). Geen
@@ -136,16 +151,24 @@ export class RuleGuardService {
     }
 
     // RG04 — Time: past de geschatte duur binnen de beschikbare tijd?
-    // Zonder Quick Session kunnen we een mismatch nog niet oplossen, dus
-    // melden we het enkel.
-    const estimatedMinutes = Math.round(
-      (totalSets * SECONDS_PER_SET) / 60,
-    );
-    const availableMinutes = SESSION_DURATION_MINUTES[context.preferences.sessionDuration];
-    if (estimatedMinutes > availableMinutes) {
-      warnings.push(
-        `RG04: geschatte duur (~${estimatedMinutes} min) overschrijdt de beschikbare tijd (${availableMinutes} min) — Quick Session bestaat nog niet.`,
-      );
+    if (context.timeLimit) {
+      // Quick Session: harde grens, exact vergeleken (niet afgerond).
+      const estimatedSeconds = estimateWorkoutSeconds(totalSets, context.timeLimit.restSeconds);
+      if (estimatedSeconds > context.timeLimit.minutes * 60) {
+        violations.push(
+          `RG04: Quick Session (~${Math.ceil(estimatedSeconds / 60)} min) past niet binnen de gekozen ${context.timeLimit.minutes} min.`,
+        );
+      }
+    } else {
+      // Normale training: de gebruiker kan zelf voor een Quick Session
+      // kiezen, dus melden we een mismatch enkel.
+      const estimatedMinutes = Math.round(estimateWorkoutSeconds(totalSets, NORMAL_REST_SECONDS) / 60);
+      const availableMinutes = SESSION_DURATION_MINUTES[context.preferences.sessionDuration];
+      if (estimatedMinutes > availableMinutes) {
+        warnings.push(
+          `RG04: geschatte duur (~${estimatedMinutes} min) overschrijdt de beschikbare tijd (${availableMinutes} min) — een Quick Session kan helpen.`,
+        );
+      }
     }
 
     return { passed: violations.length === 0, violations, warnings };

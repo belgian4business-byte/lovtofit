@@ -600,3 +600,94 @@ gebruiker met een gewichtsdoel ziet een vergrendelde, niet-opdringerige
 teaser, kan zonder betaling 7 dagen Premium proberen, ziet de range dan
 meteen, en valt na afloop vanzelf terug naar FREE zonder dataverlies.
 Niets wat vóór deze fase gratis werkte is weggehaald.
+
+### FASE 7 — Quick Session (premium)
+Doel: bij tijdgebrek een ingekorte, slimme training binnen de beschikbare tijd. Premium-functie (CAN_USE_QUICK_SESSION). Eén stap per keer.
+1. Backend: Quick Session-logica — genereer een verkorte workout die binnen X minuten past, belangrijkste oefeningen (compound/prioriteit) eerst, langs de Rule Guard.
+2. Achter Premium via de FeatureAccessService (CAN_USE_QUICK_SESSION); Free ziet een teaser.
+3. Flutter: knop/optie "Weinig tijd? Quick Session" op de Train-tab, met tijdkeuze.
+4. Free: vergrendelde teaser (🔒 Premium), net als bij het caloriedoel.
+
+Voortgang Fase 7:
+1. (klaar) Quick Session-logica (backend). Bron: blueprint v0.6 §9 (QUICK =
+   belangrijkste compound → tegenovergestelde beweging → benen →
+   core), v0.7.10 ("dezelfde trainingslogica, maar compacter", 3–4
+   bewegingen, beperkte rust), v2.5.4 (tijd = harde grens: minder
+   oefeningen of sets tot het past), v2.0 test 03 (minimale
+   uitvoerbaarheid), v0.8.11 (Quick Session ≠ mislukte training, mag
+   progressie niet verstoren). `GET /workouts/quick-session?minutes=10|15|20` (later teruggebracht naar
+   10|15, zie stap 3)
+   (JWT-auth; alleen die drie keuzes — boven ~15 min zit het maximum van 4
+   bewegingen al vol, wie meer tijd heeft doet de normale training).
+   `DecisionEngineService.getQuickSession()` gebruikt exact dezelfde
+   beslisladder als `/workouts/today` (gedeelde `selectWorkout()`: niveau,
+   apparatuur, REPLACE-uitsluiting, herstel, progressie) en kort daarna in
+   met de pure functie `planQuickSession()`: prioriteit SQUAT → PUSH → PULL
+   → CORE_STABILITY → HINGE (…), een patroon op RECOVERY schuift naar
+   achteren (valt bij weinig tijd als eerste af); max. 4 oefeningen, liever
+   meer bewegingen × 2 sets dan minder × 3, nooit onder 2 sets; rust 30 s
+   i.p.v. 45 s. Reps blijven die van de progressiebeslissing (de
+   Progression Engine vergelijkt gemiddelden per set, dus minder sets telt
+   niet als achteruitgang). Rule Guard: nieuwe optionele `timeLimit` in de
+   context → RG04 is voor een Quick Session een harde violation (exact in
+   seconden vergeleken); bij een normale training blijft het een
+   waarschuwing (tekst nu "een Quick Session kan helpen"). Eén gedeelde
+   tijdschatting `estimateWorkoutSeconds()` (rule-guard.service.ts) voor
+   inkorten én controleren. Response = TodaysWorkout + `sessionType:
+   'QUICK'`, `availableMinutes`, `estimatedMinutes`, `restSeconds`, en
+   `AiCoachService.explainQuickSession()` ("Een korte training telt gewoon
+   mee."; pijn-vervanging wordt ook uitgelegd).
+   Live geverifieerd (beginner, thuis, geen materiaal): normaal 5×3 ~21
+   min; Quick 10 min → squat/push/pull/core × 2 sets (~10 min); Quick 15
+   → zelfde 4 × 3 sets (~14 min); ongeldige minuten → 400.
+2. (klaar) Quick Session achter Premium (backend). Keuze beperkt tot
+   10/15/20 min (`QUICK_SESSION_MINUTE_OPTIONS`, `@IsIn` in de DTO; andere
+   waarden → 400). De check zit in `DecisionEngineService.getQuickSession()`
+   zelf, vóór er iets berekend wordt: zonder `CAN_USE_QUICK_SESSION` →
+   `{ status: 'PREMIUM_REQUIRED', coachMessage }` (geen workout, zelfde
+   patroon als het caloriedoel); met toegang → de volledige Quick Session
+   met `status: 'AVAILABLE'`. Opslaan checkt geen Premium, dus een Quick
+   Session loopt door als Premium tijdens de training verloopt (v2.19.11).
+   `AiCoachService.explainQuickSessionLocked()`: waarde uitleggen + "Je
+   normale training blijft gewoon gratis" (v1.1.16/v2.19.13).
+   `/workouts/today` ongewijzigd gratis.
+   Live geverifieerd: FREE → `PREMIUM_REQUIRED`, normale training werkt;
+   na proefperiode → `AVAILABLE` (10 min 4×2, 15 min 4×3). 15 en 20 min
+   geven dezelfde ~14 min-training → de app toont alleen 10 en 15 min.
+3. (klaar) Flutter: Quick Session op de Train-tab. Onder de hoofdactie
+   START TRAINING een rustige tweede knop "⚡ Weinig tijd? Quick Session" →
+   bottom sheet "Hoeveel tijd heb je vandaag?" met alleen **10 en 15 min**
+   (bij 20 min zat de Quick Session al op zijn maximum = dezelfde training
+   als 15 min; de backend-lijst `QUICK_SESSION_MINUTE_OPTIONS` is daarop
+   ook teruggebracht naar [10, 15] — één consistente lijst, 20 → 400).
+   Bij `AVAILABLE` vervangt een Quick Session-kaart tijdelijk de normale
+   kaart ("QUICK SESSION · ~N MIN", coachMessage, oefeningen met
+   sets×reps, START QUICK SESSION, "Terug naar je normale training").
+   `WorkoutScreen` heeft nu een optionele `restSeconds` (standaard 45; de
+   Quick Session geeft 30 mee van de backend). Opslaan ongewijzigd.
+   Live geverifieerd in de app: Quick Session 10 min → 4 oefeningen × 2
+   sets, rusttimer start op 00:30, terug naar normaal werkt.
+4. (klaar) Free: vergrendelde teaser voor Quick Session. Bij
+   `PREMIUM_REQUIRED` (na de tijdkeuze — de teaser verschijnt pas als de
+   gebruiker er echt om vraagt, v1.1.16) vervangt dezelfde
+   `PremiumTeaserCard` als bij het caloriedoel (⚡, "Quick Session", 🔒
+   Premium, backend-uitleg, "Ontdek Premium") de Quick Session-knop, onder
+   de normale training die gewoon bruikbaar blijft. Na "Probeer 7 dagen
+   gratis" haalt de Train-tab direct de Quick Session op met de al gekozen
+   tijd (`_lastQuickSessionMinutes`). Het Premium-paneel noemt nu beide
+   echte Premium-functies (Quick Session + persoonlijk caloriedoel). De
+   Train-tab is scrollbaar geworden (met de teaser erbij paste het niet
+   altijd meer op een klein scherm).
+   Live geverifieerd in de app: nieuw FREE-account → teaser na tijdkeuze,
+   normale training blijft werken; proefperiode starten → Quick Session
+   van 10 min verschijnt direct. Backend: 20 min → 400.
+
+Bewezen: een Premium-gebruiker met weinig tijd kiest op de Train-tab 10 of
+15 minuten en krijgt een ingekorte training met dezelfde veiligheids- en
+progressielogica als de normale training (belangrijkste bewegingen eerst,
+herstellend patroon valt als eerste af, nooit onder 2 sets, kortere rust),
+die door de Rule Guard met de tijd als harde grens wordt gecontroleerd en
+de progressie niet verstoort. Een FREE-gebruiker ziet op dat moment een
+rustige vergrendelde teaser en kan via de proefperiode direct verder; de
+normale training blijft altijd gratis. Eén consistente lijst van
+tijdkeuzes (10/15) in backend en app.

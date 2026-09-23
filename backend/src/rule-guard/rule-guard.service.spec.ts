@@ -135,4 +135,34 @@ describe('RuleGuardService', () => {
       ).not.toThrow();
     });
   });
+
+  describe('RG04 bij een Quick Session (harde tijdsgrens, v2.5.4)', () => {
+    it('blokkeert een Quick Session die niet binnen de gekozen tijd past', () => {
+      // 10 sets × (40s + 30s) = 700s > 10 min.
+      const slots = Array.from({ length: 5 }, (_, i) => ({
+        ...baseSlot,
+        targetSets: 2,
+        exercise: { ...baseSlot.exercise, id: `ex-${i}` },
+      }));
+
+      const result = service.checkWorkout(slots, { ...context(), timeLimit: { minutes: 10, restSeconds: 30 } });
+
+      expect(result.passed).toBe(false);
+      expect(result.violations.some((v) => v.startsWith('RG04'))).toBe(true);
+      expect(result.warnings.some((w) => w.startsWith('RG04'))).toBe(false);
+    });
+
+    it('laat een Quick Session door die precies binnen de tijd past', () => {
+      // 8 sets × 70s = 560s ≤ 600s.
+      const slots = Array.from({ length: 4 }, (_, i) => ({
+        ...baseSlot,
+        targetSets: 2,
+        exercise: { ...baseSlot.exercise, id: `ex-${i}` },
+      }));
+
+      const result = service.checkWorkout(slots, { ...context(), timeLimit: { minutes: 10, restSeconds: 30 } });
+
+      expect(result.passed).toBe(true);
+    });
+  });
 });

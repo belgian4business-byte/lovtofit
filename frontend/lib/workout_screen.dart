@@ -68,18 +68,22 @@ class WorkoutScreen extends StatefulWidget {
     required this.accessToken,
     required this.templateId,
     required this.exercises,
+    this.restSeconds = 45,
   });
 
   final String accessToken;
   final String templateId;
   final List<WorkoutExercise> exercises;
 
+  /// Rust na elke set. Een Quick Session gebruikt kortere rust (30 s, komt
+  /// mee van de backend — "beperkte rust", blueprint v0.7.10).
+  final int restSeconds;
+
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  static const _restSeconds = 45;
   static const _sessionsUrl = 'http://localhost:3000/workouts/sessions';
 
   int _exerciseIndex = 0;
@@ -87,7 +91,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int _reps = 0;
   double _weightKg = 0;
   _Phase _phase = _Phase.logging;
-  int _remainingRestSeconds = _restSeconds;
+  late int _remainingRestSeconds = widget.restSeconds;
   Timer? _timer;
 
   bool _isSaving = false;
@@ -136,7 +140,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _startRest() {
     setState(() {
       _phase = _Phase.resting;
-      _remainingRestSeconds = _restSeconds;
+      _remainingRestSeconds = widget.restSeconds;
     });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {

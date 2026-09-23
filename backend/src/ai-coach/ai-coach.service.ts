@@ -50,6 +50,24 @@ export class AiCoachService {
     return 'Hier is je training van vandaag.';
   }
 
+  /**
+   * Quick Session (Fase 7; v0.7.10 "minder tijd betekent niet automatisch
+   * geen training", v0.8.11 "Quick Session ≠ mislukte training"). Pijn/
+   * ongemak krijgt ook hier voorrang in de uitleg.
+   */
+  explainQuickSession(input: { estimatedMinutes: number; exerciseCount: number; hadRecentReplace: boolean }): string {
+    const core = `In ongeveer ${input.estimatedMinutes} minuten doe je de ${input.exerciseCount} belangrijkste bewegingen, met kortere rust.`;
+    if (input.hadRecentReplace) {
+      return `${core} Een oefening die eerder niet lekker voelde, hebben we vervangen door een alternatief.`;
+    }
+    return `Weinig tijd vandaag? Geen probleem. ${core} Een korte training telt gewoon mee.`;
+  }
+
+  /** Premium-gate voor Quick Session (v1.1.16 + v2.19.13): waarde uitleggen, wat gratis blijft benoemen. */
+  explainQuickSessionLocked(): string {
+    return 'Weinig tijd? Met Premium past de app je training automatisch aan de tijd die je vandaag hebt: de belangrijkste bewegingen in 10 of 15 minuten. Je normale training blijft gewoon gratis.';
+  }
+
   summarizeCompletedSession(input: {
     exerciseCount: number;
     setCount: number;

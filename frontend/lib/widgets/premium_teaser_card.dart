@@ -132,7 +132,8 @@ class _PremiumBadge extends StatelessWidget {
 /// Uitleg over Premium (belofte uit blueprint v1.1.21: "Jij traint. Wij
 /// denken mee.") met de mogelijkheid om 7 dagen gratis te proberen
 /// (v2.19.12, Fase 6 stap 5 — nog zonder echte betaling). Noemt alleen wat
-/// Premium nú echt doet. Geeft de einddatum van de proefperiode terug als
+/// Premium nú echt doet (Quick Session sinds Fase 7) — uitbreiden zodra er
+/// een nieuwe Premium-functie echt bestaat. Geeft de einddatum van de proefperiode terug als
 /// die gestart is, anders `null`.
 Future<DateTime?> showPremiumInfoSheet(BuildContext context, {required String accessToken}) {
   return showModalBottomSheet<DateTime>(
@@ -205,6 +206,12 @@ class _PremiumInfoSheetState extends State<_PremiumInfoSheet> {
             const SizedBox(height: 4),
             Text('Jij traint. Wij denken mee.', style: textTheme.titleMedium?.copyWith(color: AppColors.highlight)),
             const SizedBox(height: 16),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.bolt),
+              title: Text('Quick Session'),
+              subtitle: Text('Weinig tijd? De belangrijkste bewegingen in 10 of 15 minuten.'),
+            ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.local_fire_department_outlined),

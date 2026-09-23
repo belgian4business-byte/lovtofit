@@ -223,6 +223,30 @@ describe('AiCoachService', () => {
     });
   });
 
+  describe('explainQuickSession', () => {
+    it('noemt de geschatte tijd en brengt een korte training nooit als mislukking (v0.8.11)', () => {
+      const message = service.explainQuickSession({ estimatedMinutes: 10, exerciseCount: 4, hadRecentReplace: false });
+
+      expect(message).toContain('ongeveer 10 minuten');
+      expect(message).toContain('4 belangrijkste bewegingen');
+      expect(message).toContain('telt gewoon mee');
+    });
+
+    it('legt ook een vervangen oefening (pijn/ongemak) uit', () => {
+      const message = service.explainQuickSession({ estimatedMinutes: 14, exerciseCount: 4, hadRecentReplace: true });
+
+      expect(message).toContain('alternatief');
+    });
+
+    it('FA-009: legt bij de Premium-gate de waarde uit en benoemt wat gratis blijft', () => {
+      const message = service.explainQuickSessionLocked();
+
+      expect(message).toContain('Premium');
+      expect(message).toContain('gratis');
+      expect(message).not.toMatch(/geweigerd|denied|betaal/i);
+    });
+  });
+
   describe('explainCalorieGoal', () => {
     it('erkent onvoldoende data i.p.v. een getal te verzinnen', () => {
       const message = service.explainCalorieGoal({
