@@ -46,6 +46,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -57,6 +58,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -88,3 +90,17 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Android app-icoon (flutter_launcher_icons). Bron: assets/icon.png (vierkant).
+# Na het vervangen van icon.png opnieuw genereren met:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  # Adaptief icoon (Android 8+): de launcher knipt het zelf in zijn vorm.
+  # Achtergrond = de donkere randkleur van het logo; het logo als voorgrond
+  # met marge, zodat de vorm van de launcher geen tekst afsnijdt.
+  adaptive_icon_background: "#121D2A"
+  adaptive_icon_foreground: "assets/icon.png"
+  adaptive_icon_foreground_inset: 16
