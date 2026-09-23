@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'theme/app_theme.dart';
 import 'widgets/premium_teaser_card.dart';
 import 'widgets/settings_menu_button.dart';
@@ -36,10 +37,10 @@ class NutritionScreen extends StatefulWidget {
 }
 
 class _NutritionScreenState extends State<NutritionScreen> {
-  static const _weightUrl = 'http://localhost:3000/body-measurements';
-  static const _waterUrl = 'http://localhost:3000/water-intake';
-  static const _waterTodayUrl = 'http://localhost:3000/water-intake/today';
-  static const _calorieGoalUrl = 'http://localhost:3000/calorie-goal';
+  static const _weightUrl = '$apiBaseUrl/body-measurements';
+  static const _waterUrl = '$apiBaseUrl/water-intake';
+  static const _waterTodayUrl = '$apiBaseUrl/water-intake/today';
+  static const _calorieGoalUrl = '$apiBaseUrl/calorie-goal';
 
   final _formKey = GlobalKey<FormState>();
   final _weightController = TextEditingController();

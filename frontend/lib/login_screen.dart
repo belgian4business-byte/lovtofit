@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'main_shell.dart';
 import 'onboarding_flow.dart';
 import 'register_screen.dart';
@@ -16,7 +17,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _loginUrl = 'http://localhost:3000/auth/login';
+  static const _loginUrl = '$apiBaseUrl/auth/login';
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();

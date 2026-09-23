@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../api_config.dart';
 import '../theme/app_theme.dart';
 
-const _trialUrl = 'http://localhost:3000/subscriptions/trial';
+const _trialUrl = '$apiBaseUrl/subscriptions/trial';
 
 const _months = [
   'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',

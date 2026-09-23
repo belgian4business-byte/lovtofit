@@ -62,6 +62,49 @@ Geen aparte "Premium"-tab; premium tonen via vergrendelde teasers binnen de tabs
 - Bouw nooit twee dingen tegelijk.
 - Begin engines simpel; maak ze pas later slim (geen volledige beslisladder op dag 1).
 
+## Lokaal draaien & testen
+
+1. **Database:** Docker Desktop starten; de container `lovtofit-postgres`
+   start dan vanzelf (`restart: unless-stopped`, `backend/docker-compose.yml`).
+2. **Backend:** `cd backend` → `npm run start:dev` (poort 3000, luistert op
+   alle netwerkinterfaces). Check: `http://localhost:3000/health`.
+3. **Frontend in de browser:** `cd frontend` →
+   `flutter run -d web-server --web-port 8080`, openen in een vers
+   incognitovenster (eerst alle Chrome-vensters sluiten, anders oude cache).
+
+### App op een echte Android-telefoon
+
+De backend-URL staat op één plek: `frontend/lib/api_config.dart`
+(`apiBaseUrl`, via `--dart-define=API_BASE_URL`, standaard
+`http://localhost:3000` voor de browser). Een telefoon kent de pc niet als
+`localhost`, dus geef het wifi-IP van de pc mee. Cleartext `http://` is
+alleen in debug-builds toegestaan (`android/app/src/debug/AndroidManifest.xml`);
+een release-build blijft het blokkeren (productie → https).
+
+Eenmalig op de telefoon: Ontwikkelaarsopties aan (7× tikken op
+Buildnummer), USB-foutopsporing aan, via een datakabel aansluiten en
+"USB-foutopsporing toestaan" → "Altijd toestaan vanaf deze computer".
+
+Elke keer:
+1. Telefoon en pc op **hetzelfde wifi-netwerk**; backend draait (stap 2
+   hierboven).
+2. IP van de pc opzoeken (kan per netwerk/router veranderen):
+   `Get-NetIPAddress -AddressFamily IPv4` → het adres bij `Wi-Fi`
+   (bv. `192.168.0.140`).
+3. Toestel-id opzoeken: `flutter devices` (de CPH2247 = `26eada21`).
+4. `cd frontend` →
+   `flutter run -d <toestel-id> --dart-define=API_BASE_URL=http://<pc-ip>:3000`
+   (eerste build ~3 min, daarna veel sneller). De app installeert en start
+   vanzelf; daarna mag de kabel eruit — hij werkt via wifi zolang de
+   backend draait.
+
+Werkt inloggen niet ("Kan geen verbinding maken met de server")? Check
+vanaf de telefoon zelf of de backend bereikbaar is:
+`adb -s <toestel-id> shell "curl -s -m 5 http://<pc-ip>:3000/health"`
+(adb staat in `%LOCALAPPDATA%\Android\Sdk\platform-tools\`). Geen
+`{"status":"ok"}` → ander wifi-netwerk, pc in slaap, of de Windows-firewall
+blokkeert Node.js op dit netwerk.
+
 ## Afgeronde fases
 
 ### FASE 0 — Walking skeleton

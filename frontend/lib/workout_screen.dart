@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'theme/app_theme.dart';
 import 'workout_models.dart';
 
@@ -84,7 +85,7 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  static const _sessionsUrl = 'http://localhost:3000/workouts/sessions';
+  static const _sessionsUrl = '$apiBaseUrl/workouts/sessions';
 
   int _exerciseIndex = 0;
   int _setNumber = 1;

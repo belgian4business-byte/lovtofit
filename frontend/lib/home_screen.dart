@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'widgets/settings_menu_button.dart';
 
 const _muscleGroupLabels = {
@@ -60,8 +61,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _motivationUrl = 'http://localhost:3000/motivation/status';
-  static const _recoveryUrl = 'http://localhost:3000/recovery/status';
+  static const _motivationUrl = '$apiBaseUrl/motivation/status';
+  static const _recoveryUrl = '$apiBaseUrl/recovery/status';
 
   bool _isLoading = true;
   String? _errorMessage;

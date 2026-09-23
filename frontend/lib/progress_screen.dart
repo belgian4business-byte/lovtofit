@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'widgets/settings_menu_button.dart';
 
 const _months = [
@@ -54,8 +55,8 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  static const _sessionsUrl = 'http://localhost:3000/workouts/sessions';
-  static const _motivationUrl = 'http://localhost:3000/motivation/status';
+  static const _sessionsUrl = '$apiBaseUrl/workouts/sessions';
+  static const _motivationUrl = '$apiBaseUrl/motivation/status';
 
   bool _isLoading = true;
   String? _errorMessage;

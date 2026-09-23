@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'theme/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,7 +14,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  static const _registerUrl = 'http://localhost:3000/auth/register';
+  static const _registerUrl = '$apiBaseUrl/auth/register';
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();

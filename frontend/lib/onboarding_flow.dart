@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
@@ -54,7 +55,7 @@ const _frequencyOptions = {
 const _levelOptions = {'Beginner': 'BEGINNER', 'Gemiddeld': 'INTERMEDIATE', 'Gevorderd': 'ADVANCED'};
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
-  static const _onboardingUrl = 'http://localhost:3000/onboarding';
+  static const _onboardingUrl = '$apiBaseUrl/onboarding';
   static const _stepCount = 6;
 
   int _step = 0;

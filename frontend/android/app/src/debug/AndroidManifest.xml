@@ -4,4 +4,9 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- LOVTOFIT: de lokale ontwikkel-backend draait op http://<pc-ip>:3000
+         (geen https). Android 9+ blokkeert cleartext HTTP standaard; dit
+         staat het alleen toe in debug-builds. Release-builds (main-manifest)
+         blijven cleartext blokkeren — productie moet https gebruiken. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

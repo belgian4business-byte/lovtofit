@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'widgets/settings_menu_button.dart';
 
 const _months = [
@@ -43,8 +44,8 @@ class CoachScreen extends StatefulWidget {
 }
 
 class _CoachScreenState extends State<CoachScreen> {
-  static const _todayUrl = 'http://localhost:3000/workouts/today';
-  static const _sessionsUrl = 'http://localhost:3000/workouts/sessions';
+  static const _todayUrl = '$apiBaseUrl/workouts/today';
+  static const _sessionsUrl = '$apiBaseUrl/workouts/sessions';
 
   bool _isLoading = true;
   String? _errorMessage;

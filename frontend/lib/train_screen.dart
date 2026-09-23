@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 import 'theme/app_theme.dart';
 import 'widgets/premium_teaser_card.dart';
 import 'widgets/settings_menu_button.dart';
@@ -62,8 +63,8 @@ class TrainScreen extends StatefulWidget {
 }
 
 class _TrainScreenState extends State<TrainScreen> {
-  static const _todayUrl = 'http://localhost:3000/workouts/today';
-  static const _quickSessionUrl = 'http://localhost:3000/workouts/quick-session';
+  static const _todayUrl = '$apiBaseUrl/workouts/today';
+  static const _quickSessionUrl = '$apiBaseUrl/workouts/quick-session';
 
   bool _isLoading = true;
   String? _errorMessage;
