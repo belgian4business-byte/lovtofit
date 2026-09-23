@@ -259,6 +259,67 @@ describe('DecisionEngineService', () => {
     expect(result.coachMessage).toBe('Welkom terug 👋 We beginnen rustig weer op.');
   });
 
+  describe('coach-uitleg bij een vervangen oefening (bugfix na Fase 8)', () => {
+    const painfulWall = [{ exerciseId: 'wall', decision: 'REPLACE' }];
+    const lastSessionWith = (exerciseId: string) => ({
+      loggedSets: [{ exerciseId, exercise: { movementPattern: 'PUSH' } }],
+    });
+
+    function pushCandidates(...ids: string[]) {
+      prisma.exercise.findMany.mockImplementation(({ where }: { where: { movementPattern: string } }) =>
+        Promise.resolve(
+          where.movementPattern === 'PUSH'
+            ? ids.map((id) => exercise({ id, name: id, movementPattern: 'PUSH' }))
+            : [exercise({ id: 'squat', name: 'Bodyweight Squat', movementPattern: 'SQUAT' })],
+        ),
+      );
+    }
+
+    beforeEach(() => {
+      prisma.trainingPreferences.findUnique.mockResolvedValue({ level: 'BEGINNER', equipment: ['NONE'] });
+      prisma.exerciseProgression.findMany.mockResolvedValue(painfulWall);
+    });
+
+    it('legt het uit als de oefening van vorige keer nu vervangen is', async () => {
+      pushCandidates('wall', 'knee');
+      prisma.workoutSession.findFirst.mockResolvedValue(lastSessionWith('wall'));
+
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.slots.find((s) => s.movementPattern === 'PUSH')?.exercise.id).toBe('knee');
+      expect(result.coachMessage).toContain('alternatief');
+    });
+
+    it('herhaalt de uitleg niet bij elke training: vorige keer deed de gebruiker al het alternatief', async () => {
+      pushCandidates('wall', 'knee');
+      prisma.workoutSession.findFirst.mockResolvedValue(lastSessionWith('knee'));
+
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.coachMessage).not.toContain('alternatief');
+    });
+
+    it('zegt niet "alternatief gekozen" als er géén alternatief was (RG09 meldt dat)', async () => {
+      pushCandidates('wall');
+      prisma.workoutSession.findFirst.mockResolvedValue(lastSessionWith('wall'));
+
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.slots.find((s) => s.movementPattern === 'PUSH')?.exercise.id).toBe('wall');
+      expect(result.coachMessage).not.toContain('alternatief');
+      expect(result.ruleGuardWarnings.some((w) => w.startsWith('RG09'))).toBe(true);
+    });
+
+    it('Quick Session: legt de vervanging ook uit als dat patroon erin zit', async () => {
+      pushCandidates('wall', 'knee');
+      prisma.workoutSession.findFirst.mockResolvedValue(lastSessionWith('wall'));
+
+      const result = (await service.getQuickSession('user-1', 10)) as QuickSession;
+
+      expect(result.coachMessage).toContain('alternatief');
+    });
+  });
+
   describe('energie-check (Fase 8)', () => {
     beforeEach(() => {
       prisma.trainingPreferences.findUnique.mockResolvedValue({

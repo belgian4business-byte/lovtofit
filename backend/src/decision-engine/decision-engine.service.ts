@@ -282,7 +282,7 @@ export class DecisionEngineService {
       userId,
       slots,
       recoveryByPattern,
-      decisionByChosenExercise,
+      selection.patternsReplacedForPain,
       isLowEnergy,
     );
 
@@ -338,7 +338,8 @@ export class DecisionEngineService {
     });
     this.assertRuleGuardPassed(ruleGuardResult);
 
-    const hadRecentReplace = plan.slots.some((slot) => decisionByChosenExercise.get(slot.exercise.id) === 'REPLACE');
+    // Alleen als het vervangen patroon ook in de ingekorte training zit.
+    const hadRecentReplace = plan.slots.some((slot) => selection.patternsReplacedForPain.has(slot.movementPattern));
     const estimatedMinutes = Math.ceil(plan.estimatedSeconds / 60);
 
     return {
@@ -370,7 +371,7 @@ export class DecisionEngineService {
     userId: string,
     slots: TodaysWorkoutSlot[],
     recoveryByPattern: Map<MovementPattern, string>,
-    decisionByChosenExercise: Map<string, ProgressionDecision | undefined>,
+    patternsReplacedForPain: Set<MovementPattern>,
     isLowEnergy: boolean,
   ): Promise<string> {
     const motivation = await this.motivationEngine.getStatus(userId);
@@ -378,7 +379,7 @@ export class DecisionEngineService {
       const status = recoveryByPattern.get(slot.movementPattern);
       return status === 'RECENTLY_LOADED' || status === 'RECOVERY';
     });
-    const hadRecentReplace = [...decisionByChosenExercise.values()].some((d) => d === 'REPLACE');
+    const hadRecentReplace = slots.some((slot) => patternsReplacedForPain.has(slot.movementPattern));
     return this.aiCoach.explainTodaysWorkout({
       motivationSignal: motivation.signal,
       hasRecentlyLoadedPattern,
@@ -418,6 +419,7 @@ export class DecisionEngineService {
 
     const slots: TodaysWorkoutSlot[] = [];
     const decisionByChosenExercise = new Map<string, ProgressionDecision | undefined>();
+    const patternsReplacedForPain = new Set<MovementPattern>();
     for (const slot of template.slots) {
       const candidates = await this.prisma.exercise.findMany({
         where: {
@@ -468,6 +470,21 @@ export class DecisionEngineService {
       const targetReps = repsForProgressionDecision(latestDecisionByExercise.get(chosen.id));
       decisionByChosenExercise.set(chosen.id, latestDecisionByExercise.get(chosen.id));
 
+      // Voor de coach-uitleg: is de oefening die de gebruiker vorige keer
+      // voor dit patroon deed, nu (wegens pijn/ongemak) vervangen door een
+      // andere? Bewust "vorige keer" en niet "er staat ergens een REPLACE":
+      // een uitgesloten oefening houdt REPLACE als laatste beslissing (ze
+      // wordt nooit meer gedaan), dus anders zou de uitleg bij elke training
+      // terugkomen. Werd de pijnlijke oefening tóch gekozen (geen
+      // alternatief), dan is er niets vervangen — dat meldt RG09.
+      if (
+        lastExerciseId !== undefined &&
+        latestDecisionByExercise.get(lastExerciseId) === 'REPLACE' &&
+        chosen.id !== lastExerciseId
+      ) {
+        patternsReplacedForPain.add(slot.movementPattern);
+      }
+
       slots.push({
         order: slot.order,
         movementPattern: slot.movementPattern,
@@ -483,7 +500,7 @@ export class DecisionEngineService {
       });
     }
 
-    return { preferences, template, slots, recoveryByPattern, decisionByChosenExercise };
+    return { preferences, template, slots, recoveryByPattern, decisionByChosenExercise, patternsReplacedForPain };
   }
 
   private allowedExerciseEquipment(userEquipment: Equipment[]): ExerciseEquipment[] {
