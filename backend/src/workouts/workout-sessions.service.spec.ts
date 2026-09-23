@@ -17,7 +17,14 @@ const NORMAL_MOTIVATION = {
 
 describe('WorkoutSessionsService', () => {
   let prisma: {
-    workoutSession: { create: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+    workoutSession: {
+      create: ReturnType<typeof vi.fn>;
+      findMany: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
+    exercise: {
+      findMany: ReturnType<typeof vi.fn>;
+    };
   };
   let progressionEngine: { evaluateSession: ReturnType<typeof vi.fn> };
   let motivationEngine: { getStatus: ReturnType<typeof vi.fn> };
@@ -28,6 +35,10 @@ describe('WorkoutSessionsService', () => {
       workoutSession: {
         create: vi.fn().mockResolvedValue({ id: 'session-1' }),
         findMany: vi.fn(),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      exercise: {
+        findMany: vi.fn().mockResolvedValue([{ id: 'exercise-1', name: 'Bodyweight Squat' }]),
       },
     };
     progressionEngine = { evaluateSession: vi.fn().mockResolvedValue([]) };
@@ -83,9 +94,9 @@ describe('WorkoutSessionsService', () => {
     });
   });
 
-  it('laat de Progression Engine elke gevoede oefening evalueren en geeft de beslissingen mee terug', async () => {
+  it('laat de Progression Engine elke gevoede oefening evalueren en geeft de progressie-uitkomst per oefening mee terug', async () => {
     progressionEngine.evaluateSession.mockResolvedValue([
-      { exerciseId: 'exercise-1', decision: 'KEEP' },
+      { exerciseId: 'exercise-1', decision: 'INCREASE' },
     ]);
 
     const result = await service.save('user-1', {
@@ -100,7 +111,14 @@ describe('WorkoutSessionsService', () => {
       [{ exerciseId: 'exercise-1', setNumber: 1, reps: 12 }],
       [{ exerciseId: 'exercise-1', difficulty: 'GOOD', discomfort: false }],
     );
-    expect(result.progressionDecisions).toEqual([{ exerciseId: 'exercise-1', decision: 'KEEP' }]);
+    expect(result.progressionOutcomes).toEqual([
+      {
+        exerciseId: 'exercise-1',
+        exerciseName: 'Bodyweight Squat',
+        decision: 'INCREASE',
+        message: 'Ging goed — volgende keer proberen we 14 reps.',
+      },
+    ]);
   });
 
   it('geeft een AI Coach-boodschap mee die pijn/ongemak erkent, voorrang op een mijlpaal', async () => {
@@ -113,6 +131,10 @@ describe('WorkoutSessionsService', () => {
     });
 
     expect(result.coachMessage).toContain('ongemak');
+    expect(prisma.workoutSession.update).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+      data: { coachMessage: result.coachMessage },
+    });
   });
 
   it('geeft de sessies van de gebruiker terug, met oefeningnamen i.p.v. losse ids', async () => {
@@ -121,6 +143,7 @@ describe('WorkoutSessionsService', () => {
       {
         id: 'session-1',
         completedAt,
+        coachMessage: 'Training voltooid: 1 oefeningen, 1 sets.',
         template: { name: 'Beginner Full Body' },
         loggedSets: [
           {
@@ -143,6 +166,7 @@ describe('WorkoutSessionsService', () => {
         id: 'session-1',
         templateName: 'Beginner Full Body',
         completedAt,
+        coachMessage: 'Training voltooid: 1 oefeningen, 1 sets.',
         sets: [{ exerciseName: 'Bodyweight Squat', setNumber: 1, reps: 12, weightKg: null }],
       },
     ]);

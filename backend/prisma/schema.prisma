@@ -22,6 +22,9 @@ model User {
   trainingPreferences  TrainingPreferences?
   workoutSessions      WorkoutSession[]
   exerciseProgressions ExerciseProgression[]
+  bodyMeasurements     BodyMeasurement[]
+  waterIntake          WaterIntake[]
+  subscriptions        Subscription[]
 
   @@map("users")
 }
@@ -183,6 +186,10 @@ model WorkoutSession {
   templateId  String
   template    WorkoutTemplate @relation(fields: [templateId], references: [id])
   completedAt DateTime @default(now())
+  // AI Coach-samenvatting op het moment van opslaan (deterministisch, zie
+  // ai-coach.service.ts). Nullable: sessies van vóór deze kolom hebben er
+  // geen.
+  coachMessage String?
 
   loggedSets   LoggedSet[]
   feedback     ExerciseFeedback[]
@@ -256,4 +263,95 @@ model ExerciseProgression {
   createdAt  DateTime            @default(now())
 
   @@map("exercise_progressions")
+}
+
+// CLAUDE.md-datamodelregel: gewicht wordt nooit los opgeslagen of
+// overschreven bij een nieuwe meting — elke meting is een eigen rij, zodat
+// er een geschiedenis ontstaat (Fase 5, stap 1; bron: blueprint v1.3 §6 /
+// v2.17.4 — "gewicht is een trend, geen dagelijkse beoordeling").
+model BodyMeasurement {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  weightKg   Float
+  measuredAt DateTime @default(now())
+
+  @@map("body_measurements")
+}
+
+// Fase 5, stap 3 (bron: blueprint v1.3 §10 / v2.17.7): elke registratie is
+// een losse rij (net als BodyMeasurement) zodat "vandaag" simpelweg de som
+// is van de rijen van vandaag — geen los "totaal vandaag"-veld dat apart
+// bijgehouden en dus fout kan raken.
+model WaterIntake {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  amountMl Int
+  loggedAt DateTime @default(now())
+
+  @@map("water_intake")
+}
+
+// Fase 6, stap 1 (bron: blueprint v2.19 + v2.25.28/v2.25.29). Een gebruiker
+// zonder abonnement-rij is gewoon FREE — er wordt dus niets aangemaakt bij
+// registratie.
+enum SubscriptionPlan {
+  FREE
+  PREMIUM
+}
+
+// CANCELLED = opgezegd, maar toegang tot `expiresAt` (v2.19.9). EXPIRED
+// hoeft niet actief gezet te worden: de FeatureAccessService kijkt zelf naar
+// `expiresAt`, dus een verlopen periode geeft ook zonder statuswijziging
+// geen toegang meer.
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+// Meerdere rijen per gebruiker toegestaan (geen @unique op userId): een
+// verlenging of nieuwe proefperiode is een nieuwe rij, zodat de historie
+// bewaard blijft. De meest recente (op startedAt) telt.
+model Subscription {
+  id        String             @id @default(uuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  plan      SubscriptionPlan
+  status    SubscriptionStatus
+  startedAt DateTime           @default(now())
+  expiresAt DateTime?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId, startedAt])
+  @@map("subscriptions")
+}
+
+// Eén centrale lijst van functies (CAN_USE_*) + per plan of ze aan staan —
+// "één regel voor Premium" (v2.19.19), geen `if premium` verspreid door de
+// code. `active = false` zet een functie voor iedereen uit (FA-011).
+model Feature {
+  id          String   @id @default(uuid())
+  featureKey  String   @unique
+  description String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  planFeatures PlanFeature[]
+
+  @@map("features")
+}
+
+model PlanFeature {
+  id        String           @id @default(uuid())
+  plan      SubscriptionPlan
+  featureId String
+  feature   Feature          @relation(fields: [featureId], references: [id])
+  enabled   Boolean
+
+  @@unique([plan, featureId])
+  @@map("plan_features")
 }

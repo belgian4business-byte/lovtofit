@@ -39,6 +39,24 @@ const DEFAULT_TARGET_REPS = 12;
 const MIN_TARGET_REPS = 6;
 const MAX_TARGET_REPS = 20;
 
+/**
+ * Hoeveel reps de volgende keer doel worden gegeven de laatste
+ * Progression-beslissing (INCREASE +2, DECREASE -2, binnen 6-20). Losse,
+ * exporteerbare functie (i.p.v. alleen een classmethode) zodat de Coach-tab
+ * na een training dezelfde regel kan gebruiken om de progressie-uitkomst te
+ * tonen (CLAUDE.md Fase 4, stap 4) — één plek voor deze regel, geen
+ * herhaalde 6-20-clamping elders.
+ */
+export function repsForProgressionDecision(decision: ProgressionDecision | undefined): number {
+  if (decision === 'INCREASE') {
+    return Math.min(DEFAULT_TARGET_REPS + 2, MAX_TARGET_REPS);
+  }
+  if (decision === 'DECREASE') {
+    return Math.max(DEFAULT_TARGET_REPS - 2, MIN_TARGET_REPS);
+  }
+  return DEFAULT_TARGET_REPS;
+}
+
 export interface TodaysWorkoutSlot {
   order: number;
   movementPattern: MovementPattern;
@@ -176,7 +194,7 @@ export class DecisionEngineService {
       scored.sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
       const chosen = scored[0].exercise;
 
-      const targetReps = this.repsFor(latestDecisionByExercise.get(chosen.id));
+      const targetReps = repsForProgressionDecision(latestDecisionByExercise.get(chosen.id));
       decisionByChosenExercise.set(chosen.id, latestDecisionByExercise.get(chosen.id));
 
       slots.push({
@@ -282,16 +300,6 @@ export class DecisionEngineService {
     if (exercise.level === context.preferredLevel) score += 10;
 
     return score;
-  }
-
-  private repsFor(decision: ProgressionDecision | undefined): number {
-    if (decision === 'INCREASE') {
-      return Math.min(DEFAULT_TARGET_REPS + 2, MAX_TARGET_REPS);
-    }
-    if (decision === 'DECREASE') {
-      return Math.max(DEFAULT_TARGET_REPS - 2, MIN_TARGET_REPS);
-    }
-    return DEFAULT_TARGET_REPS;
   }
 
   /** Laatst bekende Progression-beslissing per oefening (nieuwste eerst). */

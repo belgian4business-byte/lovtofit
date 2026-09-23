@@ -101,6 +101,27 @@ describe('MotivationEngineService', () => {
     expect(result.milestone).toBe(1);
   });
 
+  it('geeft de al-gehaalde mijlpalen en de eerstvolgende terug', async () => {
+    prisma.trainingPreferences.findUnique.mockResolvedValue({ weeklyFrequency: 3 });
+    prisma.workoutSession.findMany.mockResolvedValue(sessionsAgo(0, 1, 2, 3, 4, 5, 6));
+
+    const result = await service.getStatus('user-1');
+
+    expect(result.totalSessionsCompleted).toBe(7);
+    expect(result.milestonesReached).toEqual([1, 5]);
+    expect(result.nextMilestone).toBe(10);
+  });
+
+  it('geeft de eerste mijlpaal als "eerstvolgende" als er nog nooit getraind is', async () => {
+    prisma.trainingPreferences.findUnique.mockResolvedValue({ weeklyFrequency: 3 });
+    prisma.workoutSession.findMany.mockResolvedValue([]);
+
+    const result = await service.getStatus('user-1');
+
+    expect(result.milestonesReached).toEqual([]);
+    expect(result.nextMilestone).toBe(1);
+  });
+
   it('geeft NORMAL/0 als er nog nooit getraind is (nog geen geschiedenis om te beoordelen)', async () => {
     prisma.trainingPreferences.findUnique.mockResolvedValue({ weeklyFrequency: 3 });
     prisma.workoutSession.findMany.mockResolvedValue([]);

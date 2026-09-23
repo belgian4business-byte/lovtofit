@@ -9,6 +9,16 @@ import 'workout_models.dart';
 
 enum _Phase { logging, resting, exerciseComplete, workoutComplete }
 
+class ProgressionOutcome {
+  const ProgressionOutcome({
+    required this.exerciseName,
+    required this.message,
+  });
+
+  final String exerciseName;
+  final String message;
+}
+
 class LoggedSet {
   const LoggedSet({
     required this.exerciseId,
@@ -83,6 +93,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isSaving = false;
   bool _isSaved = false;
   String? _saveError;
+  List<ProgressionOutcome> _progressionOutcomes = [];
 
   String? _difficulty;
   bool? _discomfort;
@@ -219,7 +230,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 201) {
-        setState(() => _isSaved = true);
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final outcomes = (body['progressionOutcomes'] as List).cast<Map<String, dynamic>>();
+        setState(() {
+          _isSaved = true;
+          _progressionOutcomes = outcomes
+              .map(
+                (entry) => ProgressionOutcome(
+                  exerciseName: entry['exerciseName'] as String,
+                  message: entry['message'] as String,
+                ),
+              )
+              .toList();
+        });
         return;
       }
       setState(() => _saveError = 'Opslaan is niet gelukt. Probeer het opnieuw.');
@@ -442,7 +465,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         Text('${_log.length} sets gelogd', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 16),
         if (_isSaving) const CircularProgressIndicator(),
-        if (_isSaved)
+        if (_isSaved) ...[
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -451,6 +474,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               Text('Opgeslagen', style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
+          if (_progressionOutcomes.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Volgende keer', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const SizedBox(height: 8),
+            for (final outcome in _progressionOutcomes)
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(outcome.exerciseName, style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 2),
+                      Text(outcome.message, style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ],
         if (_saveError != null) ...[
           Text(
             _saveError!,

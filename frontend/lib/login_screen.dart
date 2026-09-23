@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'home_screen.dart';
+import 'main_shell.dart';
 import 'onboarding_flow.dart';
 import 'register_screen.dart';
 import 'theme/app_theme.dart';
@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => hasCompletedOnboarding
-                ? HomeScreen(accessToken: accessToken, email: email)
+                ? MainShell(accessToken: accessToken, email: email)
                 : OnboardingFlow(accessToken: accessToken, email: email),
           ),
         );

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:lovtofit_app/coach_screen.dart';
 import 'package:lovtofit_app/home_screen.dart';
 import 'package:lovtofit_app/main.dart';
+import 'package:lovtofit_app/main_shell.dart';
+import 'package:lovtofit_app/nutrition_screen.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
 import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
 import 'package:lovtofit_app/theme/app_theme.dart';
+import 'package:lovtofit_app/train_screen.dart';
+import 'package:lovtofit_app/widgets/premium_teaser_card.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
 
@@ -100,12 +105,30 @@ void main() {
   });
 
   group('HomeScreen', () {
-    testWidgets('shows a loading state while fetching today\'s workout', (
+    testWidgets('shows a loading state while fetching streak and recovery status', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: HomeScreen(accessToken: 'test-token', email: 'test@example.com'),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Laat de (in deze test onbereikbare) fetch-calls op tijd aflopen
+      // zodat er geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('TrainScreen', () {
+    testWidgets('shows a loading state while fetching today\'s workout', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: TrainScreen(accessToken: 'test-token', email: 'test@example.com'),
         ),
       );
 
@@ -233,6 +256,145 @@ void main() {
 
       // Laat de (in deze test onbereikbare) fetch-call afronden zodat er
       // geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('CoachScreen', () {
+    testWidgets('shows a loading state while fetching coach messages', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: CoachScreen(accessToken: 'test-token')),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Laat de (in deze test onbereikbare) fetch-calls op tijd aflopen
+      // zodat er geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('NutritionScreen', () {
+    testWidgets('shows the weight logging form immediately, alongside the loading trend card', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: NutritionScreen(accessToken: 'test-token')),
+      );
+
+      expect(find.text('Gewicht loggen'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Gewicht (kg)'), findsOneWidget);
+      expect(find.widgetWithText(AppGradientButton, 'Gewicht opslaan'), findsOneWidget);
+      // Trend-, water- en caloriedoel-kaart laden allemaal tegelijk.
+      expect(find.byType(CircularProgressIndicator), findsNWidgets(3));
+
+      // Laat de (in deze test onbereikbare) trend/water-fetches op tijd
+      // aflopen zodat er geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('shows a validation error for an unrealistic weight', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: NutritionScreen(accessToken: 'test-token')),
+      );
+
+      await tester.ensureVisible(find.widgetWithText(TextFormField, 'Gewicht (kg)'));
+      await tester.enterText(find.widgetWithText(TextFormField, 'Gewicht (kg)'), '5');
+      final saveButton = find.widgetWithText(AppGradientButton, 'Gewicht opslaan');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pump();
+
+      expect(find.text('Vul een geldig gewicht in (20-400 kg)'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('shows the quick water-logging buttons', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: NutritionScreen(accessToken: 'test-token')),
+      );
+
+      expect(find.widgetWithText(OutlinedButton, '+250 ml'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '+500 ml'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, '+250 ml'));
+      await tester.pump();
+
+      // Laat alle (in deze test onbereikbare) fetches op tijd aflopen
+      // zodat er geen hangende timer overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('PremiumTeaserCard', () {
+    testWidgets('toont slot-label, uitleg en opent de Premium-uitleg bij "Ontdek Premium"', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: PremiumTeaserCard(
+              icon: Icons.local_fire_department_outlined,
+              title: 'Caloriedoel',
+              message: 'Met Premium krijg je een persoonlijke calorie-richtwaarde als range.',
+              accessToken: 'test-token',
+              onPremiumActivated: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Caloriedoel'), findsOneWidget);
+      expect(find.text('Premium'), findsOneWidget);
+      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      expect(find.textContaining('calorie-richtwaarde'), findsOneWidget);
+      // Nooit een getal/range in de teaser.
+      expect(find.textContaining('kcal'), findsNothing);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Ontdek Premium'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jij traint. Wij denken mee.'), findsOneWidget);
+      expect(find.textContaining('blijven altijd gratis'), findsOneWidget);
+      expect(find.widgetWithText(AppGradientButton, 'Probeer 7 dagen gratis'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Niet nu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jij traint. Wij denken mee.'), findsNothing);
+    });
+  });
+
+  group('MainShell', () {
+    testWidgets('toont de 5 tabs en wisselt naar Nutrition bij tikken', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MainShell(accessToken: 'test-token', email: 'test@example.com'),
+        ),
+      );
+
+      final navBar = find.byType(NavigationBar);
+      expect(navBar, findsOneWidget);
+      for (final label in ['Home', 'Train', 'Progress', 'Nutrition', 'Coach']) {
+        expect(find.descendant(of: navBar, matching: find.text(label)), findsOneWidget);
+      }
+
+      await tester.tap(find.descendant(of: navBar, matching: find.text('Nutrition')));
+      await tester.pump();
+
+      expect(find.text('Gewicht loggen'), findsOneWidget);
+
+      // Laat de achtergrond-fetches van Train/Progress/Coach (al gebouwd
+      // via IndexedStack) op tijd aflopen zodat er geen hangende timer
+      // overblijft na de test.
       await tester.pump(const Duration(seconds: 6));
     });
   });

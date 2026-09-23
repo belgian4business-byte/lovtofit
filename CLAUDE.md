@@ -304,7 +304,299 @@ mijlpalen zonder ooit te straffen, en de AI Coach legt dit alles uit in
 korte, veilige Nederlandse tekst — zonder zelf ooit een beslissing te
 nemen.
 
-## Huidige fase
+### FASE 4 — Engines zichtbaar maken in de app
 
-Nog te bepalen — lever de volgende blueprint-sectie aan zodra je klaar
-bent om verder te gaan.
+Doel: de engine-logica uit Fase 3 zichtbaar maken voor de gebruiker. Eén
+stap per keer.
+1. (klaar) Onderste navigatiebalk (`MainShell`, `NavigationBar` volgens de
+   huisstijl) met 5 tabs: Home / Train / Progress / Nutrition / Coach.
+   Tandwiel rechtsboven (`SettingsMenuButton`, gedeeld over alle tabs) met
+   "Uitloggen" — geen apart profielscherm nog.
+   - **Train** = het bestaande "training van vandaag"-scherm (voorheen
+     Home), verplaatst naar `train_screen.dart`.
+   - **Home** = nieuw, bewust minimaal welkomstscherm — wordt in stap 3
+     aangevuld met streak + recovery-status.
+   - **Progress** = bestaand scherm, ongewijzigd.
+   - **Nutrition/Coach** = gedeelde `PlaceholderTabScreen`
+     ("Komt binnenkort beschikbaar").
+   Login/onboarding navigeren nu naar `MainShell` i.p.v. rechtstreeks naar
+   één scherm.
+2. (klaar) Coach-tab: toont de AI Coach-berichten uit de engines —
+   `coachMessage` van vandaag (`GET /workouts/today`, `AiCoachService.
+   explainTodaysWorkout()`) plus een geschiedenis van eerdere sessies.
+   Daarvoor is `coachMessage` nu ook opgeslagen op `WorkoutSession` (nieuwe
+   nullable kolom, migratie `add_session_coach_message`) zodat
+   `GET /workouts/sessions` ('m via `WorkoutSessionsService.listForUser()`)
+   ook oudere berichten kan teruggeven, niet alleen dat van vandaag.
+   Pure weergave — de tekst zelf komt volledig uit de bestaande
+   (deterministische) `AiCoachService`.
+   **Bugfix onderweg ontdekt:** `MainShell` houdt alle 5 tabs continu in
+   leven via een `IndexedStack` (voor behoud van state), waardoor
+   `ProgressScreen` en `CoachScreen` hun data maar één keer ophaalden — bij
+   het opstarten van de app, vóór er die sessie iets getraind was. Beide
+   schermen krijgen nu een `isActive`-flag van `MainShell` en verversen
+   zichzelf via `didUpdateWidget` zodra ze de actieve tab worden, zodat een
+   net afgeronde training meteen zichtbaar is zonder handmatige refresh.
+   Live geverifieerd: na een training afronden tonen zowel Progress als
+   Coach de nieuwe sessie direct bij het wisselen naar die tab.
+3. (klaar) Home-tab: toont de consistency-streak (Motivation Engine,
+   `GET /motivation/status`, `consistencyStreakWeeks` + "deze week X van
+   de Y trainingen") en de recovery-status per spiergroep (Recovery
+   Engine, `GET /recovery/status`, `byMuscleGroup` — 🟢 Fris/🟡 Recent
+   belast/🔵 Herstellend). Pure weergave, geen backend-wijzigingen nodig
+   (beide endpoints bestonden al). Zelfde `isActive`-ververspatroon als
+   Progress/Coach.
+4. (klaar) Na een training: per oefening de progressie-uitkomst tonen
+   ("Ging goed — volgende keer proberen we 14 reps." / "Volgende keer
+   kiezen we een andere oefening." / etc.). De reps-berekening
+   (INCREASE +2 / DECREASE -2, binnen 6-20) stond al in de Decision
+   Engine (`repsFor`) maar alleen als private methode voor het
+   samenstellen van `/workouts/today` — nu geëxporteerd als losse functie
+   `repsForProgressionDecision` (decision-engine.service.ts) zodat er
+   geen tweede plek met dezelfde 6-20-clamping-regel ontstaat.
+   `AiCoachService.explainProgressionOutcome()` (nieuw) vertaalt de
+   KEEP/INCREASE/DECREASE/REPLACE-beslissing naar de Nederlandse zin
+   ("De Engines beslissen. De AI legt uit.", zelfde principe als de
+   bestaande coachMessage-teksten). `POST /workouts/sessions` geeft dit
+   nu terug als `progressionOutcomes` (per oefening: naam, decision,
+   message) — dit vervangt de eerdere kale `progressionDecisions`-lijst
+   (nog nergens in de app gebruikt, dus veilig om te vervangen i.p.v.
+   naast elkaar te laten bestaan). Workout-scherm toont de lijst onder
+   "Opgeslagen" op het "Training voltooid"-scherm.
+   Live geverifieerd: een verbeterde prestatie (meer reps, Goed) geeft
+   `"Ging goed — volgende keer proberen we 14 reps."`; een eerste keer
+   op een oefening (geen historie) geeft `"Volgende keer hetzelfde — dat
+   mag."` (KEEP).
+5. (klaar) Progress-tab: mijlpalen en motivatie-signalen tonen, boven de
+   bestaande sessielijst. `MotivationEngineService.getStatus()` (bron:
+   `MILESTONES`-constante, nu geëxporteerd i.p.v. alleen intern) geeft nu
+   ook `milestonesReached: number[]` en `nextMilestone: number | null`
+   terug — pure afgeleide feiten, geen nieuwe beslissing. Nieuwe
+   `AiCoachService.explainMotivationStatus()` vertaalt het huidige
+   motivatiesignaal (RETURN_AFTER_ABSENCE/MILESTONE_REACHED/
+   CONSISTENCY_GOOD/AT_RISK_OF_DROPOUT/CONSISTENCY_DECLINING/NORMAL) naar
+   een Nederlandse zin — nooit als falen verwoord, ook niet bij
+   AT_RISK_OF_DROPOUT/CONSISTENCY_DECLINING (v2.16.18). `MotivationEngine
+   Controller` (nu met `AiCoachModule` erbij) voegt dit samen tot
+   `GET /motivation/status` → `{ ...status, coachMessage }`, zelfde patroon
+   als de bestaande coachMessage op andere endpoints.
+   Progress-tab toont dit nu als twee kaarten boven de sessielijst: een
+   motivatie-kaart (de coachMessage-zin) en een mijlpalen-kaart (chips
+   voor elke gehaalde mijlpaal + "eerstvolgende mijlpaal: N trainingen").
+   Zelfde `isActive`-ververspatroon als de andere tabs.
+
+Bewezen: alle 5 tabs (Home, Train, Progress, Nutrition-placeholder, Coach)
+zijn bereikbaar via de onderste navigatiebalk; de Coach-tab toont de
+AI Coach-berichten van vandaag en van eerdere sessies; Home toont de
+consistency-streak en de recovery-status per spiergroep; na een training
+zie je meteen per oefening wat de Progression Engine besliste; en Progress
+toont naast de sessiegeschiedenis ook de gehaalde mijlpalen en het huidige
+motivatiesignaal. Alle engine-uitkomsten uit Fase 3 zijn nu voor de
+gebruiker zichtbaar, zonder dat de engines zelf iets anders zijn gaan
+beslissen.
+
+### FASE 5 — Nutrition (licht & ondersteunend)
+
+Bron: "LOVTOFIT Blueprint v1.0-v1.4.docx" (v1.3) en
+"LOVTOFIT Blueprint v2.16-v2.20.docx" (v2.17).
+Principe: voeding ondersteunt, overheerst niet. Ranges i.p.v. exacte kcal,
+trend boven dagweging, geen extreme doelen, geen medische claims. Eén stap
+per keer.
+1. (klaar) Gewicht bijhouden: `POST /body-measurements` (JWT-auth, DTO
+   met sanity-check 20-400 kg) slaat elke meting op als een nieuwe rij in
+   `body_measurements` — nooit een update, zodat de geschiedenis bewaard
+   blijft (CLAUDE.md-datamodelregel). Vervangt de Nutrition-placeholder
+   (`PlaceholderTabScreen` verwijderd, was daarna nergens anders meer
+   gebruikt). Nutrition-tab toont een simpel formulier (gewicht invoeren →
+   "Gewicht opslaan" → bevestiging).
+2. (klaar) Gewichtstrend (bron: blueprint v2.17.4/v2.17.12): een simpele
+   Trend Engine v1 (`BodyMeasurementsService.getTrend()`) vergelijkt het
+   gemiddelde van de oudste en de recentste helft van de metingen — bij
+   minder dan 3 metingen `INSUFFICIENT_DATA` i.p.v. een verzonnen trend
+   ("begin simpel" — later evt. datumvenster i.p.v. aantal-gebaseerde
+   helften, zoals de Recovery Engine al doet). Nieuwe
+   `AiCoachService.explainWeightTrend()` vertaalt DOWN/UP/STABLE naar
+   dezelfde geruststellende toon als het blueprint-voorbeeld ("je gewicht
+   schommelt van dag tot dag, maar de trend beweegt geleidelijk..."), nooit
+   als prestatie-oordeel. `GET /body-measurements` geeft dit terug
+   (status, richting, aantal metingen, geschiedenis, coachMessage).
+   Nutrition-tab toont dit als een kaart boven het logformulier (met
+   trend-icoon) — het formulier blijft altijd meteen bruikbaar, ook terwijl
+   de trend nog laadt of niet op te halen is. Ververst automatisch na het
+   opslaan van een nieuwe meting, en bij het terugkeren naar de tab
+   (zelfde `isActive`-patroon als de andere tabs).
+   Live geverifieerd: 1 meting → `INSUFFICIENT_DATA`; na 3 dalende
+   metingen (82.4 → 81.8 → 81.2) → `DOWN` met de verwachte tekst.
+3. (klaar) Water-tracking (bron: blueprint v1.3 §10 / v2.17.7): nieuw
+   `WaterIntake`-model (`water_intake`-tabel) — net als bij gewicht is elke
+   registratie een losse rij, "vandaag" is simpelweg de som van de rijen
+   van vandaag (kalenderdag in UTC). `POST /water-intake` logt een
+   hoeveelheid (DTO-check 1-3000 ml). Het waterdoel is een praktische
+   richtwaarde (geen medische norm): 30 ml/kg op basis van het laatst
+   bekende gewicht (`body_measurements`), afgerond op een glas (250 ml);
+   zonder bekend gewicht een vast standaarddoel van 2000 ml.
+   `GET /water-intake/today` geeft `{ totalMl, targetMl, remainingMl,
+   coachMessage }` terug — `AiCoachService.explainWaterStatus()` gebruikt
+   dezelfde formulering als het blueprint-voorbeeld ("nog ongeveer 500 ml
+   te gaan"), rondt naar boven af (geen schijnprecisie) en viert het
+   gehaalde doel zonder schuldgevoel-taal bij het niet halen ervan.
+   Nutrition-tab toont dit als een kaart bovenaan (vóór de gewichtstrend)
+   met twee één-tik-knoppen ("+250 ml"/"+500 ml") die altijd bruikbaar
+   blijven, ook terwijl de stand nog laadt.
+   Live geverifieerd: 0 ml → "nog ongeveer 2500 ml te gaan" (doel 2500 ml
+   bij 81,2 kg); na +250 ml en +500 ml → 750 ml geregistreerd, doel
+   ongewijzigd, restant correct bijgewerkt.
+4. (klaar) Caloriedoel als range, alleen bij een gewichtsdoel (bron:
+   blueprint v1.3 §3/§4 + v2.17.16 pseudocode). Nieuwe `CalorieGoalService`
+   (geen nieuwe tabel — leest het bestaande actieve doel + het laatst
+   bekende gewicht): alleen bij een actief `LOSE_WEIGHT`- of
+   `BUILD_MUSCLE`-doel wordt er iets berekend (`NOT_APPLICABLE` voor
+   GET_STRONGER/IMPROVE_CONDITION/GET_FIT of geen doel — "geen agressieve
+   calorie-aanpassing" zonder gewichtsdoel); zonder een gelogd gewicht
+   `LIMITED_ESTIMATE` (bron: v2.17.12) i.p.v. iets verzinnen. Richtwaarde is
+   bewust simpel (~30 kcal/kg, ±10% range, ±15%/+10% richting bij
+   afvallen/opbouwen) — geen Mifflin-St Jeor-achtige BMR-formule, want die
+   heeft lengte/leeftijd nodig die we nog niet verzamelen; zelfde soort
+   vuistregel als de waterformule uit stap 3. `AiCoachService.
+   explainCalorieGoal()` presenteert dit altijd als range, nooit als één
+   getal (v1.3 §4). `GET /calorie-goal` (JWT-auth). Nutrition-tab toont dit
+   als kaart tussen de gewichtstrend en het logformulier — onzichtbaar bij
+   `NOT_APPLICABLE` ("alleen bij een gewichtsdoel").
+   **Bewuste vereenvoudiging, expliciet niet (nog) gebouwd:** de blueprint
+   noemt calorie-range een PREMIUM-only functie (v1.3 §7 / v2.17.9), maar
+   er bestaat nog geen premium/`FeatureAccessService`-infrastructuur in dit
+   project (geen `User.isPremium`, geen betaalflow). Deze stap gaat daarom
+   voorlopig gewoon voor iedereen — een aparte, bewust geplande stap moet
+   `FeatureAccessService` (`CAN_USE_*`) invoeren zodra premium een
+   onderwerp wordt, i.p.v. het er nu stiekem bij te bouwen.
+   Live geverifieerd: LOSE_WEIGHT + 81,2 kg → 1850–2300 kcal; alleen
+   GET_STRONGER → `NOT_APPLICABLE`.
+   **Bugfix onderweg ontdekt (niet in de code, in de test-workflow):** de
+   kaart leek na het bouwen niet te verschijnen voor een echt account met
+   een actief afvaldoel + gelogd gewicht. Een rechtstreekse test van
+   `CalorieGoalService` tegen de database (buiten de API om) bevestigde dat
+   de backend al correct `HAS_RANGE` teruggaf; de oorzaak lag in een
+   verouderde incognito-browsercache — meerdere "nieuwe" incognitovensters
+   waren na elkaar geopend zonder de vorige ooit te sluiten, waardoor Chrome
+   dezelfde (verouderde) incognito-sessiecache bleef hergebruiken. Opgelost
+   door eerst alle Chrome-processen af te sluiten vóór een nieuw
+   incognitovenster te openen (vastgelegd in het geheugenbestand
+   `feedback_flutter_web_browser_cache.md` voor toekomstige stappen).
+
+Bewezen: alle vier stappen werken samen in de Nutrition-tab — gewicht
+loggen (met geschiedenis, nooit overschreven), een gewichtstrend die nooit
+één losse meting overinterpreteert, waterregistratie met een praktische
+richtwaarde en een caloriedoel als range dat alleen verschijnt bij een
+echt gewichtsdoel. Eiwit-richtwaarde en voedingsvoorkeuren (blueprint v1.3
+§9/§15, v2.17.6/v2.17.8) zijn bewust niet gebouwd — buiten de scope die
+voor deze fase is goedgekeurd; een latere fase kan die er gestructureerd
+bij zetten, mét de nog te bouwen `FeatureAccessService` voor premium-
+onderdelen zoals de blueprint die aangeeft.
+
+### FASE 6 — Premium / Feature Access (zonder echte betalingen)
+
+Bron: blueprint v1.1 (Free vs Premium), v1.5 §13, v2.19 (Feature Access,
+pseudocode v2.19.18, test lab v2.19.21) en v2.25.28/v2.25.29 (datamodel).
+Afgesproken scope: **geen echte betaalprovider** (App Store/Google Play/
+RevenueCat/prijs — blueprint v1.1.22/v2.37.20: "nog NIET beslissen"), en
+**alleen de caloriedoel-range gaat achter Premium** — niets wat nu gratis
+werkt wordt weggehaald (v1.1.15/v2.19.4). Eén stap per keer.
+1. (klaar) Datamodel + `FeatureAccessService` (alleen backend). Nieuwe
+   tabellen `subscriptions` (plan FREE/PREMIUM, status TRIAL/ACTIVE/
+   CANCELLED/EXPIRED, `startedAt`, `expiresAt`; meerdere rijen per gebruiker
+   toegestaan zodat historie bewaard blijft, de nieuwste telt; geen rij =
+   FREE), `features` (`featureKey` uniek, `active` = globale aan/uit,
+   FA-011) en `plan_features` (plan × feature → enabled). Migratie
+   `add_subscriptions_and_features`. De functielijst staat centraal in
+   `src/feature-access/feature-keys.ts` (`FEATURES`, bron voor de seed):
+   FREE+PREMIUM = BASIC_WORKOUT, HISTORY, COACH_MESSAGES, WEIGHT_TRACKING,
+   WATER_TRACKING; alleen PREMIUM = CALORIE_RANGE (+ alvast
+   DYNAMIC_PLANNER, SMART_RESCHEDULE, QUICK_SESSION, ADVANCED_PROGRESS,
+   WEEKLY_COACH_REVIEW, die als functie nog niet bestaan).
+   `FeatureAccessService.canUse(userId, featureKey)` /
+   `getEffectivePlan(userId)`: ACTIVE geldig tot `expiresAt` (of zonder
+   einddatum); TRIAL/CANCELLED alleen tot `expiresAt` (zonder einddatum
+   géén toegang — nooit stilletjes permanent Premium); EXPIRED of een
+   verstreken `expiresAt` → FREE, zonder dat er een achtergrondtaak de
+   status hoeft om te zetten. Onbekende/uitgeschakelde functie → dicht.
+   Leest alleen, verwijdert nooit data (v2.19.10). Unit-tests volgen
+   FA-001…FA-013.
+   Let op: Prisma 7 genereert de client niet meer automatisch bij
+   `migrate dev` — daarna ook `npx prisma generate --config
+   prisma7.config.ts` draaien.
+   Live geverifieerd (tijdelijke testgebruiker, daarna opgeruimd): geen
+   abonnement → FREE (water ja, calorie-range nee); TRIAL nog 7 dagen →
+   PREMIUM (beide ja); nieuwere EXPIRED-rij → weer FREE, beide rijen
+   bewaard.
+2. (klaar) `GET /features` (JWT-auth, `FeatureAccessController`) →
+   `{ plan, features: { CAN_USE_*: boolean } }` (v2.19.7), via
+   `FeatureAccessService.getFeatureAccess()` — zelfde regels als `canUse`
+   (gedeelde `isEnabledFor`), 2 queries i.p.v. één per functie. Bevat altijd
+   elke sleutel uit `FEATURES` (niet-geseed → false). Puur informatie voor
+   de UI: de backend checkt elke Premium-aanvraag zelf opnieuw via `canUse`
+   (v2.19.8). Let op: bij PREMIUM staan ook nog-niet-bestaande functies
+   (bv. `CAN_USE_QUICK_SESSION`) op true — de app mag die vlaggen pas
+   gebruiken zodra de functie echt bestaat.
+   Live geverifieerd: zonder token 401; FREE → 5 gratis functies true,
+   CALORIE_RANGE false; na een TRIAL-rij → plan PREMIUM, alles true.
+3. (klaar) Caloriedoel-range achter Premium (backend). `CalorieGoalService.
+   getStatus()` vraagt — ná de doel-check — `FeatureAccessService.canUse(
+   userId, 'CAN_USE_CALORIE_RANGE')`; zonder toegang nieuwe status
+   `PREMIUM_REQUIRED` (goalType wel, range `null` — de range verlaat de
+   server niet, v2.19.22). Zonder gewichtsdoel blijft het `NOT_APPLICABLE`
+   (geen upsell zonder behoefte, v2.19.14). `AiCoachService.
+   explainCalorieGoal()` geeft bij `PREMIUM_REQUIRED` een uitleg zonder
+   "geweigerd"-taal die benadrukt wat gratis blijft (v2.19.13). Water/
+   gewicht/gewichtstrend ongewijzigd gratis.
+   Live geverifieerd: FREE + afvaldoel → `PREMIUM_REQUIRED`; TRIAL →
+   `HAS_RANGE` 1850–2300 kcal; nieuwere EXPIRED-rij → weer
+   `PREMIUM_REQUIRED`, gewichtsmeting bewaard; FREE + alleen GET_STRONGER →
+   `NOT_APPLICABLE`.
+4. (klaar) Vergrendelde teaser in de Nutrition-tab. Nieuwe herbruikbare
+   `PremiumTeaserCard` (`lib/widgets/premium_teaser_card.dart`): icoon,
+   titel, 🔒 Premium-label, de uitleg uit de backend (coachMessage) en een
+   rustige (outlined) "Ontdek Premium"-knop (v2.19.13). Die opent
+   `showPremiumInfoSheet()` (bottom sheet): "Jij traint. Wij denken mee."
+   (v1.1.21), alleen wat Premium nú echt doet (caloriedoel als range —
+   geen beloftes over nog niet bestaande functies) en dat trainingen/
+   geschiedenis/gewicht/water altijd gratis blijven. Nutrition-tab toont
+   de teaser puur op basis van de backend-status `PREMIUM_REQUIRED` van
+   `GET /calorie-goal` — de app beslist niets zelf.
+5. (klaar) Premium activeren zonder echte betaling: proefperiode van 7
+   dagen (v2.19.12). Backend: `POST /subscriptions/trial` (JWT-auth,
+   nieuwe module `src/subscriptions/`, `SubscriptionsService.startTrial()`)
+   maakt een nieuwe `subscriptions`-rij PREMIUM/TRIAL met `expiresAt` = nu
+   + 7 dagen. Eén proefperiode per gebruiker, ooit: wie al eens een
+   PREMIUM-rij had (trial of betaald) krijgt 409 "Je hebt de gratis
+   proefperiode al gebruikt." Check + aanmaken in één Serializable-
+   transactie (dubbel tikken → nooit twee trials). Deze module bepaalt
+   géén toegang — dat blijft uitsluitend de `FeatureAccessService`; na
+   afloop valt de gebruiker vanzelf terug naar FREE, data blijft bewaard.
+   App: `showPremiumInfoSheet()` heeft nu de hoofdknop "Probeer 7 dagen
+   gratis" + "Niet nu" ("er wordt niets afgeschreven"). Bij succes sluit
+   het paneel, roept `PremiumTeaserCard.onPremiumActivated` aan (Nutrition
+   herlaadt `GET /calorie-goal` → range zichtbaar) en toont een SnackBar
+   met de einddatum ("daarna ga je gewoon terug naar Free — je gegevens
+   blijven bewaard"). Fouten (409-tekst/geen verbinding) in het paneel.
+   Bugfix onderweg: het paneel werd hoger dan de standaard bottom-sheet-
+   hoogte (~half scherm) → "Niet nu" viel buiten beeld op kleine
+   schermen; nu `isScrollControlled: true` + `SingleChildScrollView`.
+   Live geverifieerd: zonder token 401; vóór trial `PREMIUM_REQUIRED`;
+   trial → 201 (einddatum +7 dagen); daarna `HAS_RANGE` 1850–2300 kcal en
+   `/features` plan PREMIUM; tweede poging → 409. In de app: trial starten
+   ontgrendelt de caloriekaart direct.
+   **Bewust niet gebouwd:** de melding "je proefperiode loopt binnenkort
+   af" (v2.19.12 — heeft een plek nodig, bv. Home of notificaties), een
+   echte betaalprovider/prijs (afgesproken buiten scope), audit logging
+   van feature-gebruik (v2.19.20, optioneel), en het vergrendelen van nog
+   niet bestaande Premium-functies (Quick Session, Smart Reschedule, enz.
+   staan al in `FEATURES`, maar moeten nog gebouwd worden).
+
+Bewezen: Premium is één centrale regel (`FeatureAccessService`, `CAN_USE_*`)
+op basis van een abonnement-historie die nooit overschreven wordt; de
+backend beslist en de app toont alleen wat de backend besliste (de
+caloriedoel-range verlaat de server niet zonder toegang). Een FREE-
+gebruiker met een gewichtsdoel ziet een vergrendelde, niet-opdringerige
+teaser, kan zonder betaling 7 dagen Premium proberen, ziet de range dan
+meteen, en valt na afloop vanzelf terug naar FREE zonder dataverlies.
+Niets wat vóór deze fase gratis werkte is weggehaald.

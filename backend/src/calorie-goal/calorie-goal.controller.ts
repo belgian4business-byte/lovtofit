@@ -3,19 +3,19 @@ import { AiCoachService } from '../ai-coach/ai-coach.service.js';
 import type { AuthenticatedUser } from '../auth/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { MotivationEngineService } from './motivation-engine.service.js';
+import { CalorieGoalService } from './calorie-goal.service.js';
 
-@Controller('motivation')
+@Controller('calorie-goal')
 @UseGuards(JwtAuthGuard)
-export class MotivationEngineController {
+export class CalorieGoalController {
   constructor(
-    private readonly motivationEngine: MotivationEngineService,
+    private readonly calorieGoal: CalorieGoalService,
     private readonly aiCoach: AiCoachService,
   ) {}
 
-  @Get('status')
+  @Get()
   async getStatus(@CurrentUser() user: AuthenticatedUser) {
-    const status = await this.motivationEngine.getStatus(user.id);
-    return { ...status, coachMessage: this.aiCoach.explainMotivationStatus(status) };
+    const report = await this.calorieGoal.getStatus(user.id);
+    return { ...report, coachMessage: this.aiCoach.explainCalorieGoal(report) };
   }
 }

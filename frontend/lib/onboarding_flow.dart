@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'home_screen.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 /// Eén onboardingvraag per scherm, in de volgorde uit de blueprint:
@@ -147,7 +147,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           context,
         ).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => HomeScreen(accessToken: widget.accessToken, email: widget.email),
+            builder: (_) => MainShell(accessToken: widget.accessToken, email: widget.email),
           ),
         );
         return;

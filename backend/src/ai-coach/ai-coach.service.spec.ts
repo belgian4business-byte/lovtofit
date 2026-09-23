@@ -126,4 +126,145 @@ describe('AiCoachService', () => {
       expect(message).not.toContain('10 trainingen');
     });
   });
+
+  describe('explainProgressionOutcome', () => {
+    it('gebruikt het meegegeven reps-getal bij INCREASE, verzint zelf niets', () => {
+      const message = service.explainProgressionOutcome('INCREASE', 14);
+      expect(message).toContain('14 reps');
+    });
+
+    it('gebruikt het meegegeven reps-getal bij DECREASE', () => {
+      const message = service.explainProgressionOutcome('DECREASE', 10);
+      expect(message).toContain('10 reps');
+    });
+
+    it('meldt een andere oefening bij REPLACE, zonder cijfers', () => {
+      const message = service.explainProgressionOutcome('REPLACE', 12);
+      expect(message).toContain('andere oefening');
+      expect(message).not.toMatch(/\d+\s*reps/);
+    });
+
+    it('geeft een neutrale melding bij KEEP', () => {
+      const message = service.explainProgressionOutcome('KEEP', 12);
+      expect(message).toBe('Volgende keer hetzelfde — dat mag.');
+    });
+  });
+
+  describe('explainMotivationStatus', () => {
+    const base = {
+      consistencyStreakWeeks: 0,
+      weeklyTarget: 3,
+      completedThisWeek: 1,
+      totalSessionsCompleted: 5,
+      milestone: null,
+      daysSinceLastSession: 1,
+      milestonesReached: [1, 5],
+      nextMilestone: 10,
+    };
+
+    it('viert een mijlpaal zonder een cijfer te verzinnen (gebruikt het meegegeven getal)', () => {
+      const message = service.explainMotivationStatus({
+        ...base,
+        signal: 'MILESTONE_REACHED',
+        milestone: 5,
+      });
+      expect(message).toContain('5 trainingen');
+    });
+
+    it('verwoordt AT_RISK_OF_DROPOUT aanmoedigend, nooit als falen', () => {
+      const message = service.explainMotivationStatus({ ...base, signal: 'AT_RISK_OF_DROPOUT' });
+      expect(message).not.toMatch(/gefaald|slecht|lui/i);
+    });
+
+    it('geeft een neutrale weekstand bij NORMAL', () => {
+      const message = service.explainMotivationStatus({ ...base, signal: 'NORMAL' });
+      expect(message).toContain('1 van de 3 trainingen');
+    });
+  });
+
+  describe('explainWeightTrend', () => {
+    it('erkent onvoldoende data i.p.v. een trend te verzinnen', () => {
+      const message = service.explainWeightTrend('INSUFFICIENT_DATA', null);
+      expect(message).toContain('niet genoeg metingen');
+    });
+
+    it('verwoordt een dalende trend geruststellend, niet als prestatie-eis', () => {
+      const message = service.explainWeightTrend('HAS_TREND', 'DOWN');
+      expect(message).toContain('naar beneden');
+      expect(message).not.toMatch(/goed gedaan|verdiend/i);
+    });
+
+    it('verwoordt een stijgende trend zonder waarde-oordeel', () => {
+      const message = service.explainWeightTrend('HAS_TREND', 'UP');
+      expect(message).toContain('omhoog');
+      expect(message).not.toMatch(/slecht|fout|te veel/i);
+    });
+
+    it('geeft een neutrale melding bij een stabiele trend', () => {
+      const message = service.explainWeightTrend('HAS_TREND', 'STABLE');
+      expect(message).toContain('stabiel');
+    });
+  });
+
+  describe('explainWaterStatus', () => {
+    it('meldt het restant afgerond, geen schijnprecisie', () => {
+      const message = service.explainWaterStatus({ totalMl: 1250, targetMl: 2000, remainingMl: 750 });
+      expect(message).toContain('750 ml');
+    });
+
+    it('rondt naar boven af zodat een klein restant niet als "0 ml" wordt getoond', () => {
+      const message = service.explainWaterStatus({ totalMl: 1980, targetMl: 2000, remainingMl: 20 });
+      expect(message).toContain('50 ml');
+    });
+
+    it('viert het gehaalde doel zonder schuldgevoel-taal elders', () => {
+      const message = service.explainWaterStatus({ totalMl: 2000, targetMl: 2000, remainingMl: 0 });
+      expect(message).toContain('gehaald');
+    });
+  });
+
+  describe('explainCalorieGoal', () => {
+    it('erkent onvoldoende data i.p.v. een getal te verzinnen', () => {
+      const message = service.explainCalorieGoal({
+        status: 'LIMITED_ESTIMATE',
+        goalType: 'LOSE_WEIGHT',
+        rangeLowKcal: null,
+        rangeHighKcal: null,
+      });
+      expect(message).toContain('nog geen gewicht');
+    });
+
+    it('gebruikt de meegegeven range bij LOSE_WEIGHT, geen los magisch getal', () => {
+      const message = service.explainCalorieGoal({
+        status: 'HAS_RANGE',
+        goalType: 'LOSE_WEIGHT',
+        rangeLowKcal: 1850,
+        rangeHighKcal: 2250,
+      });
+      expect(message).toContain('1850–2250 kcal');
+    });
+
+    it('gebruikt de meegegeven range bij BUILD_MUSCLE en noemt eiwit', () => {
+      const message = service.explainCalorieGoal({
+        status: 'HAS_RANGE',
+        goalType: 'BUILD_MUSCLE',
+        rangeLowKcal: 2500,
+        rangeHighKcal: 2900,
+      });
+      expect(message).toContain('2500–2900 kcal');
+      expect(message).toContain('eiwit');
+    });
+
+    it('FA-009: legt bij PREMIUM_REQUIRED de waarde uit, zonder "geweigerd"-taal en zonder getal', () => {
+      const message = service.explainCalorieGoal({
+        status: 'PREMIUM_REQUIRED',
+        goalType: 'LOSE_WEIGHT',
+        rangeLowKcal: null,
+        rangeHighKcal: null,
+      });
+      expect(message).toContain('Premium');
+      expect(message).toContain('gratis');
+      expect(message).not.toMatch(/kcal|geweigerd|denied/i);
+    });
+  });
 });

@@ -11,7 +11,7 @@ export const MOTIVATION_SIGNALS = [
 ] as const;
 export type MotivationSignal = (typeof MOTIVATION_SIGNALS)[number];
 
-const MILESTONES = [1, 5, 10, 25, 50, 100];
+export const MILESTONES = [1, 5, 10, 25, 50, 100];
 const ABSENCE_THRESHOLD_DAYS = 14;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -25,6 +25,10 @@ export interface MotivationStatus {
   /** Alleen gezet als signal === MILESTONE_REACHED. */
   milestone: number | null;
   daysSinceLastSession: number | null;
+  /** Alle mijlpalen (CLAUDE.md Fase 4, stap 5) die de gebruiker al haalde. */
+  milestonesReached: number[];
+  /** Eerstvolgende nog niet gehaalde mijlpaal, of null voorbij de laatste. */
+  nextMilestone: number | null;
 }
 
 /**
@@ -75,6 +79,8 @@ export class MotivationEngineService {
         totalSessionsCompleted: 0,
         milestone: null,
         daysSinceLastSession: null,
+        milestonesReached: [],
+        nextMilestone: MILESTONES[0],
       };
     }
 
@@ -132,6 +138,8 @@ export class MotivationEngineService {
       totalSessionsCompleted,
       milestone: signal === 'MILESTONE_REACHED' ? justReachedMilestone : null,
       daysSinceLastSession,
+      milestonesReached: MILESTONES.filter((m) => m <= totalSessionsCompleted),
+      nextMilestone: MILESTONES.find((m) => m > totalSessionsCompleted) ?? null,
     };
   }
 
