@@ -847,18 +847,88 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(appBar: AppBar(actions: const [SettingsMenuButton(accessToken: 'test-token')])),
       ));
+      // Direct naar het profiel: geen menu meer (uitloggen staat op het profiel).
       await tester.tap(find.byIcon(Icons.settings));
-      await tester.pumpAndSettle();
-      expect(find.text('Profiel'), findsOneWidget);
-      expect(find.text('Uitloggen'), findsOneWidget);
-
-      await tester.tap(find.text('Profiel'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(ProfileScreen), findsOneWidget);
 
       // Laat de (in deze test onbereikbare) fetch op tijd aflopen.
       await tester.pump(const Duration(seconds: 6));
+    });
+
+    // Startscherm (zoals LoginScreen) → tabs → profiel, net als in de app.
+    Future<void> pumpFromStart(WidgetTester tester, {bool backendDown = false}) async {
+      final client = MockClient((request) async {
+        if (backendDown) return http.Response('', 500);
+        final path = request.url.path;
+        if (path.endsWith('/onboarding')) return http.Response(jsonEncode(someProfile), 200, headers: json);
+        if (path.endsWith('/features')) return http.Response(jsonEncode(freePlan), 200, headers: json);
+        if (path.endsWith('/motivation/status')) return http.Response(jsonEncode(someStats), 200, headers: json);
+        return http.Response('', 500);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(actions: const [SettingsMenuButton(accessToken: 'test-token')]),
+                    body: const Text('tabs'),
+                  ),
+                )),
+                child: const Text('startscherm'),
+              ),
+            ),
+          ),
+        ));
+        await tester.tap(find.text('startscherm'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.settings));
+        await tester.pumpAndSettle();
+      }, () => client);
+    }
+
+    Future<void> tapLogout(WidgetTester tester) async {
+      await tester.scrollUntilVisible(find.text('Uitloggen'), 100);
+      await tester.tap(find.text('Uitloggen'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('uitloggen vanaf het profiel: na bevestigen terug op het startscherm', (tester) async {
+      await pumpFromStart(tester);
+      await tapLogout(tester);
+      expect(find.text('Uitloggen?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Uitloggen').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('startscherm'), findsOneWidget);
+      expect(find.byType(ProfileScreen), findsNothing);
+      expect(find.text('tabs'), findsNothing);
+    });
+
+    testWidgets('uitloggen annuleren: je blijft op het profiel', (tester) async {
+      await pumpFromStart(tester);
+      await tapLogout(tester);
+
+      await tester.tap(find.text('Annuleren'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfileScreen), findsOneWidget);
+    });
+
+    testWidgets('ook zonder verbinding kan je uitloggen', (tester) async {
+      await pumpFromStart(tester, backendDown: true);
+      expect(find.text('Kon je profiel niet ophalen.'), findsOneWidget);
+
+      await tester.tap(find.text('Uitloggen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Uitloggen').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('startscherm'), findsOneWidget);
     });
   });
 

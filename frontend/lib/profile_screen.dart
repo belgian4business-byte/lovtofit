@@ -133,6 +133,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(_errorMessage!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton(onPressed: _load, child: const Text('Opnieuw proberen')),
+              const SizedBox(height: 8),
+              // Ook zonder verbinding moet je kunnen uitloggen.
+              _buildLogoutButton(),
             ],
           ),
         ),
@@ -201,9 +204,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: const Text('Profiel aanpassen'),
             ),
           ],
+          const SizedBox(height: 12),
+          _buildLogoutButton(),
         ],
       ),
     );
+  }
+
+  Widget _buildLogoutButton() {
+    return TextButton.icon(
+      onPressed: _confirmLogout,
+      icon: const Icon(Icons.logout),
+      label: const Text('Uitloggen'),
+    );
+  }
+
+  /// Uitloggen (Fase 10, stap 4): het token staat alleen in het geheugen,
+  /// dus terug naar het eerste scherm (inloggen) = uitgelogd.
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Uitloggen?'),
+        content: const Text('Je kunt altijd weer inloggen; je gegevens blijven bewaard.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuleren')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Uitloggen')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   // Wat de backend besliste, alleen in woorden: de app rekent zelf niets uit.
