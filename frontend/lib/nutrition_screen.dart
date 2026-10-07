@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
+import 'recipe_detail_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/premium_teaser_card.dart';
 import 'widgets/recipe_list_card.dart';
@@ -551,6 +552,9 @@ class _NutritionScreenState extends State<NutritionScreen> {
       recipes: _recipes,
       accessToken: widget.accessToken,
       onPremiumActivated: _onPremiumActivated,
+      onOpenRecipe: (recipe) => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => RecipeDetailScreen(recipe: recipe)),
+      ),
     );
   }
 

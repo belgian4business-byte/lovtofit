@@ -78,7 +78,8 @@ class RecipeListCard extends StatelessWidget {
   final String accessToken;
   final VoidCallback onPremiumActivated;
 
-  /// Detailscherm (stap 4); `null` = nog niet tikbaar.
+  /// Een open recept openen (detailscherm, stap 4). Alleen voor open
+  /// recepten; een vergrendeld recept opent het Premium-infoblad.
   final ValueChanged<Recipe>? onOpenRecipe;
 
   @override

@@ -15,6 +15,7 @@ import 'package:lovtofit_app/onboarding_flow.dart';
 import 'package:lovtofit_app/profile_edit_screen.dart';
 import 'package:lovtofit_app/profile_screen.dart';
 import 'package:lovtofit_app/progress_screen.dart';
+import 'package:lovtofit_app/recipe_detail_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
 import 'package:lovtofit_app/theme/app_theme.dart';
 import 'package:lovtofit_app/train_screen.dart';
@@ -1183,6 +1184,94 @@ void main() {
       await tester.scrollUntilVisible(find.text('Kabeljauw met broccoli'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('280–350 kcal'), findsOneWidget);
       expect(find.text('Nog 1 recept met Premium.'), findsOneWidget);
+    });
+  });
+
+  group('RecipeDetailScreen', () {
+    final open = Recipe.fromJson({
+      'id': '1',
+      'name': 'Volkorenboterham met ei en tomaat',
+      'goal': 'GENERAL',
+      'mealType': 'BREAKFAST',
+      'description': 'Eenvoudig ontbijt dat lang verzadigt.',
+      'kcalMin': 330,
+      'kcalMax': 400,
+      'locked': false,
+      'ingredients': ['2 sneetjes volkorenbrood', '2 eieren', '1 tomaat, in plakjes'],
+      'steps': ['Kook de eieren.', 'Beleg het brood met tomaat.', 'Leg het ei erop.'],
+    });
+    final locked = Recipe.fromJson({
+      'id': '2',
+      'name': 'Linzencurry met rijst',
+      'goal': 'GENERAL',
+      'mealType': 'DINNER',
+      'description': 'Vegetarische curry.',
+      'kcalMin': 520,
+      'kcalMax': 620,
+      'locked': true,
+      'ingredients': null,
+      'steps': null,
+    });
+
+    testWidgets('toont naam, maaltijd, kcal-range, ingrediënten en genummerde bereiding', (tester) async {
+      await tester.pumpWidget(MaterialApp(home: RecipeDetailScreen(recipe: open)));
+
+      expect(find.text('Volkorenboterham met ei en tomaat'), findsOneWidget);
+      expect(find.text('Ontbijt'), findsOneWidget);
+      expect(find.text('330–400 kcal'), findsOneWidget);
+      expect(find.text('Kcal is een schatting per portie.'), findsOneWidget);
+      expect(find.text('Ingrediënten'), findsOneWidget);
+      expect(find.text('2 eieren'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Leg het ei erop.'), 100);
+      expect(find.text('Bereiding'), findsOneWidget);
+      for (final number in ['1', '2', '3']) {
+        expect(find.text(number), findsOneWidget);
+      }
+    });
+
+    Future<void> pumpList(WidgetTester tester, List<Recipe> recipes) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: SingleChildScrollView(
+              child: RecipeListCard(
+                goals: const ['GENERAL'],
+                recipes: recipes,
+                accessToken: 'test-token',
+                onPremiumActivated: () {},
+                onOpenRecipe: (recipe) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => RecipeDetailScreen(recipe: recipe)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('tik op een open recept opent het detailscherm; terug brengt je naar de lijst', (tester) async {
+      await pumpList(tester, [open, locked]);
+      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+
+      await tester.tap(find.text('Volkorenboterham met ei en tomaat'));
+      await tester.pumpAndSettle();
+      expect(find.byType(RecipeDetailScreen), findsOneWidget);
+      expect(find.text('2 sneetjes volkorenbrood'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(RecipeDetailScreen), findsNothing);
+      expect(find.text('Recepten voor jou'), findsOneWidget);
+    });
+
+    testWidgets('een vergrendeld recept opent nooit het detailscherm (wel het Premium-infoblad)', (tester) async {
+      await pumpList(tester, [open, locked]);
+
+      await tester.tap(find.text('Linzencurry met rijst'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RecipeDetailScreen), findsNothing);
+      expect(find.text('Probeer 7 dagen gratis'), findsOneWidget);
     });
   });
 }
