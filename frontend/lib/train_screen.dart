@@ -301,7 +301,7 @@ class _TrainScreenState extends State<TrainScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('LOVTOFIT'),
-        actions: const [SettingsMenuButton()],
+        actions: [SettingsMenuButton(accessToken: widget.accessToken)],
       ),
       body: Center(
         child: ConstrainedBox(

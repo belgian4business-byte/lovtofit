@@ -948,6 +948,14 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
+## Huidige fase: FASE 10 — Profiel-scherm
+Doel: een echt profiel-scherm (bereikbaar via het tandwiel rechtsboven) waar de gebruiker zijn gegevens ziet en kan aanpassen. Eén stap per keer.
+1. Profiel-scherm met de onboarding-gegevens tonen: doel, locatie, apparatuur, frequentie, niveau, + e-mail.
+2. Deze gegevens kunnen aanpassen. Bij doelwijziging: oud doel op PAUSED (nooit overschrijven), conform de datamodel-regel.
+3. Abonnementstatus tonen (Free/Premium, trial-einddatum) + een paar kerncijfers (totaal trainingen, streak).
+4. Uitloggen verplaatsen naar dit scherm.
+Regel: blauwe huisstijl, consistent met de rest; wijzigingen gaan via de bestaande API/engines.
+
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
    heeft alleen de slots SQUAT, PUSH, PULL, HINGE en CORE_STABILITY, dus de

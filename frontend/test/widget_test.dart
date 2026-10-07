@@ -12,6 +12,7 @@ import 'package:lovtofit_app/main.dart';
 import 'package:lovtofit_app/main_shell.dart';
 import 'package:lovtofit_app/nutrition_screen.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
+import 'package:lovtofit_app/profile_screen.dart';
 import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
 import 'package:lovtofit_app/theme/app_theme.dart';
@@ -19,6 +20,7 @@ import 'package:lovtofit_app/train_screen.dart';
 import 'package:lovtofit_app/widgets/energy_check_sheet.dart';
 import 'package:lovtofit_app/widgets/exercise_photo.dart';
 import 'package:lovtofit_app/widgets/premium_teaser_card.dart';
+import 'package:lovtofit_app/widgets/settings_menu_button.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
 
@@ -690,6 +692,85 @@ void main() {
       // Laat de achtergrond-fetches van Train/Progress/Coach (al gebouwd
       // via IndexedStack) op tijd aflopen zodat er geen hangende timer
       // overblijft na de test.
+      await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('ProfileScreen', () {
+    Future<void> pumpProfile(WidgetTester tester, Map<String, dynamic> body) async {
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/onboarding') && request.method == 'GET') {
+          return http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+        }
+        return http.Response('', 500);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: ProfileScreen(accessToken: 'test-token')));
+        await tester.pumpAndSettle();
+      }, () => client);
+    }
+
+    testWidgets('toont e-mail en de onboarding-keuzes met Nederlandse labels', (tester) async {
+      await pumpProfile(tester, {
+        'email': 'test@example.com',
+        'goals': ['LOSE_WEIGHT', 'GET_FIT'],
+        'preferences': {
+          'location': 'HOME',
+          'equipment': ['DUMBBELLS', 'RESISTANCE_BANDS'],
+          'sessionDuration': 'MIN_30',
+          'weeklyFrequency': 3,
+          'level': 'BEGINNER',
+        },
+      });
+
+      expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Afvallen, Fit worden'), findsOneWidget);
+      expect(find.text('🏠 Thuis'), findsOneWidget);
+      expect(find.text('Dumbbells, Elastieken'), findsOneWidget);
+      expect(find.text('3× per week'), findsOneWidget);
+      expect(find.text('⏱ 30 min'), findsOneWidget);
+      expect(find.text('Beginner'), findsOneWidget);
+    });
+
+    testWidgets('locatie Buiten (nog niet in de onboarding) krijgt toch een label', (tester) async {
+      await pumpProfile(tester, {
+        'email': 'test@example.com',
+        'goals': ['GET_FIT'],
+        'preferences': {
+          'location': 'OUTDOOR',
+          'equipment': ['NONE'],
+          'sessionDuration': 'MIN_15',
+          'weeklyFrequency': 2,
+          'level': 'ADVANCED',
+        },
+      });
+
+      expect(find.text('🌳 Buiten'), findsOneWidget);
+      expect(find.text('Je doel'), findsOneWidget);
+    });
+
+    testWidgets('zonder afgeronde onboarding: duidelijke melding, geen crash', (tester) async {
+      await pumpProfile(tester, {'email': 'test@example.com', 'goals': [], 'preferences': null});
+
+      expect(find.text('Nog geen doel gekozen'), findsOneWidget);
+      expect(find.text('Je hebt de onboarding nog niet afgerond.'), findsOneWidget);
+    });
+
+    testWidgets('het tandwiel opent het profiel-scherm', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(appBar: AppBar(actions: const [SettingsMenuButton(accessToken: 'test-token')])),
+      ));
+      await tester.tap(find.byIcon(Icons.settings));
+      await tester.pumpAndSettle();
+      expect(find.text('Profiel'), findsOneWidget);
+      expect(find.text('Uitloggen'), findsOneWidget);
+
+      await tester.tap(find.text('Profiel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(ProfileScreen), findsOneWidget);
+
+      // Laat de (in deze test onbereikbare) fetch op tijd aflopen.
       await tester.pump(const Duration(seconds: 6));
     });
   });

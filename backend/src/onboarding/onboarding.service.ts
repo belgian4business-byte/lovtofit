@@ -7,6 +7,28 @@ import { SubmitOnboardingDto } from './dto/submit-onboarding.dto.js';
 export class OnboardingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Wat de gebruiker in de onboarding koos, voor het profiel-scherm: e-mail,
+   * de actieve doelen (gepauzeerde blijven bewaard maar tellen niet mee) en
+   * de trainingsvoorkeuren (`null` als de onboarding nog niet af is).
+   */
+  async get(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        email: true,
+        goals: { where: { status: GoalStatus.ACTIVE }, orderBy: { createdAt: 'asc' } },
+        trainingPreferences: true,
+      },
+    });
+
+    return {
+      email: user.email,
+      goals: user.goals.map((goal) => goal.type),
+      preferences: user.trainingPreferences,
+    };
+  }
+
   async submit(userId: string, dto: SubmitOnboardingDto) {
     return this.prisma.$transaction(async (tx) => {
       const activeGoals = await tx.goal.findMany({

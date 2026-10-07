@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'main_shell.dart';
+import 'profile_options.dart';
 import 'theme/app_theme.dart';
 
 /// Eén onboardingvraag per scherm, in de volgorde uit de blueprint:
@@ -18,41 +19,6 @@ class OnboardingFlow extends StatefulWidget {
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
-
-const _goalOptions = {
-  'Afvallen': 'LOSE_WEIGHT',
-  'Spieren opbouwen': 'BUILD_MUSCLE',
-  'Sterker worden': 'GET_STRONGER',
-  'Conditie verbeteren': 'IMPROVE_CONDITION',
-  'Fit worden': 'GET_FIT',
-};
-
-const _locationOptions = {'🏠 Thuis': 'HOME', '🏋️ Fitness': 'GYM', '🔄 Beide': 'BOTH'};
-
-const _equipmentOptions = {
-  'Geen apparatuur': 'NONE',
-  'Dumbbells': 'DUMBBELLS',
-  'Elastieken': 'RESISTANCE_BANDS',
-  'Kettlebell': 'KETTLEBELL',
-  'Volledige fitnessapparatuur': 'FULL_GYM',
-};
-
-const _durationOptions = {
-  '⏱ 15 min': 'MIN_15',
-  '⏱ 30 min': 'MIN_30',
-  '⏱ 45 min': 'MIN_45',
-  '⏱ 60+ min': 'MIN_60_PLUS',
-};
-
-const _frequencyOptions = {
-  '2× per week': 2,
-  '3× per week': 3,
-  '4× per week': 4,
-  '5× per week': 5,
-  '6× per week': 6,
-};
-
-const _levelOptions = {'Beginner': 'BEGINNER', 'Gemiddeld': 'INTERMEDIATE', 'Gevorderd': 'ADVANCED'};
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   static const _onboardingUrl = '$apiBaseUrl/onboarding';
@@ -224,7 +190,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _MultiChoiceStep(
           title: 'Wat wil je bereiken?',
           subtitle: 'Meerdere keuzes mogelijk',
-          options: _goalOptions,
+          options: goalOptions,
           selected: _goals,
           onToggle: (value) => setState(
             () => _goals.contains(value) ? _goals.remove(value) : _goals.add(value),
@@ -233,35 +199,35 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 1:
         return _SingleChoiceStep(
           title: 'Waar train je meestal?',
-          options: _locationOptions,
+          options: locationOptions,
           selected: _location,
           onSelect: (value) => setState(() => _location = value),
         );
       case 2:
         return _MultiChoiceStep(
           title: 'Welke apparatuur heb je?',
-          options: _equipmentOptions,
+          options: equipmentOptions,
           selected: _equipment,
           onToggle: _toggleEquipment,
         );
       case 3:
         return _SingleChoiceStep(
           title: 'Hoeveel tijd heb je meestal?',
-          options: _durationOptions,
+          options: durationOptions,
           selected: _duration,
           onSelect: (value) => setState(() => _duration = value),
         );
       case 4:
         return _SingleChoiceStep<int>(
           title: 'Hoe vaak wil je trainen?',
-          options: _frequencyOptions,
+          options: frequencyOptions,
           selected: _frequency,
           onSelect: (value) => setState(() => _frequency = value),
         );
       case 5:
         return _SingleChoiceStep(
           title: 'Hoe ervaren ben je?',
-          options: _levelOptions,
+          options: levelOptions,
           selected: _level,
           onSelect: (value) => setState(() => _level = value),
         );

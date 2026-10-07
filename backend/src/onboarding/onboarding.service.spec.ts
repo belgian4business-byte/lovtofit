@@ -67,4 +67,42 @@ describe('OnboardingService', () => {
     expect(prisma.goal.updateMany).not.toHaveBeenCalled();
     expect(prisma.goal.createMany).not.toHaveBeenCalled();
   });
+
+  describe('get (profiel-scherm)', () => {
+    it('geeft e-mail, alleen de actieve doelen en de voorkeuren terug', async () => {
+      const preferences = { location: 'HOME', equipment: ['NONE'], weeklyFrequency: 3 };
+      const findUniqueOrThrow = vi.fn().mockResolvedValue({
+        email: 'a@example.com',
+        goals: [{ type: GoalType.LOSE_WEIGHT }, { type: GoalType.GET_FIT }],
+        trainingPreferences: preferences,
+      });
+      onboardingService = new OnboardingService({ ...prisma, user: { findUniqueOrThrow } } as never);
+
+      const result = await onboardingService.get('user-1');
+
+      expect(findUniqueOrThrow.mock.calls[0][0].select.goals.where).toEqual({
+        status: GoalStatus.ACTIVE,
+      });
+      expect(result).toEqual({
+        email: 'a@example.com',
+        goals: [GoalType.LOSE_WEIGHT, GoalType.GET_FIT],
+        preferences,
+      });
+    });
+
+    it('geeft preferences null als de onboarding nog niet af is', async () => {
+      const findUniqueOrThrow = vi.fn().mockResolvedValue({
+        email: 'a@example.com',
+        goals: [],
+        trainingPreferences: null,
+      });
+      onboardingService = new OnboardingService({ ...prisma, user: { findUniqueOrThrow } } as never);
+
+      expect(await onboardingService.get('user-1')).toEqual({
+        email: 'a@example.com',
+        goals: [],
+        preferences: null,
+      });
+    });
+  });
 });
