@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'theme/app_theme.dart';
 import 'widgets/premium_teaser_card.dart';
+import 'widgets/recipe_list_card.dart';
 import 'widgets/settings_menu_button.dart';
 
 const _trendIcons = {
@@ -20,7 +21,8 @@ const _trendIcons = {
 /// overschreven). Stap 2: toont de gewichtstrend (`GET
 /// /body-measurements`) — nooit één losse meting overinterpreteren. Stap
 /// 3: waterregistratie (`GET`/`POST /water-intake`) met een praktische
-/// richtwaarde i.p.v. een harde medische norm. De logvorm/knoppen blijven
+/// richtwaarde i.p.v. een harde medische norm. Fase 11: recepten bij het
+/// doel (`GET /recipes`), vergrendelde als Premium-teaser. De logvorm/knoppen blijven
 /// altijd meteen bruikbaar, ook als het ophalen van trend/water nog bezig
 /// is of mislukt.
 class NutritionScreen extends StatefulWidget {
@@ -41,6 +43,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
   static const _waterUrl = '$apiBaseUrl/water-intake';
   static const _waterTodayUrl = '$apiBaseUrl/water-intake/today';
   static const _calorieGoalUrl = '$apiBaseUrl/calorie-goal';
+  static const _recipesUrl = '$apiBaseUrl/recipes';
 
   final _formKey = GlobalKey<FormState>();
   final _weightController = TextEditingController();
@@ -67,12 +70,18 @@ class _NutritionScreenState extends State<NutritionScreen> {
   String? _calorieGoalStatus;
   String? _calorieGoalMessage;
 
+  bool _isLoadingRecipes = true;
+  String? _recipesErrorMessage;
+  List<String> _recipeGoals = [];
+  List<Recipe> _recipes = [];
+
   @override
   void initState() {
     super.initState();
     _loadTrend();
     _loadWater();
     _loadCalorieGoal();
+    _loadRecipes();
   }
 
   @override
@@ -82,6 +91,42 @@ class _NutritionScreenState extends State<NutritionScreen> {
       _loadTrend();
       _loadWater();
       _loadCalorieGoal();
+      _loadRecipes();
+    }
+  }
+
+  // Na een gestarte proefperiode: alles wat Premium opent opnieuw ophalen.
+  void _onPremiumActivated() {
+    _loadCalorieGoal();
+    _loadRecipes();
+  }
+
+  Future<void> _loadRecipes() async {
+    setState(() {
+      _isLoadingRecipes = true;
+      _recipesErrorMessage = null;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse(_recipesUrl), headers: {'Authorization': 'Bearer ${widget.accessToken}'})
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        setState(() {
+          _recipeGoals = (body['goals'] as List).cast<String>();
+          _recipes = (body['recipes'] as List)
+              .map((json) => Recipe.fromJson(json as Map<String, dynamic>))
+              .toList();
+        });
+        return;
+      }
+      setState(() => _recipesErrorMessage = 'Kon de recepten niet ophalen.');
+    } catch (_) {
+      setState(() => _recipesErrorMessage = 'Kan geen verbinding maken met de server.');
+    } finally {
+      if (mounted) setState(() => _isLoadingRecipes = false);
     }
   }
 
@@ -273,6 +318,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 _buildCalorieGoalCard(context),
                 const SizedBox(height: 20),
                 _buildForm(context),
+                const SizedBox(height: 20),
+                _buildRecipesCard(context),
               ],
             ),
           ),
@@ -445,7 +492,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
         title: 'Caloriedoel',
         message: _calorieGoalMessage ?? '',
         accessToken: widget.accessToken,
-        onPremiumActivated: _loadCalorieGoal,
+        onPremiumActivated: _onPremiumActivated,
       );
     }
 
@@ -470,6 +517,40 @@ class _NutritionScreenState extends State<NutritionScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRecipesCard(BuildContext context) {
+    if (_isLoadingRecipes) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_recipesErrorMessage != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(child: Text(_recipesErrorMessage!)),
+              TextButton(onPressed: _loadRecipes, child: const Text('Opnieuw')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_recipes.isEmpty) return const SizedBox.shrink();
+
+    return RecipeListCard(
+      goals: _recipeGoals,
+      recipes: _recipes,
+      accessToken: widget.accessToken,
+      onPremiumActivated: _onPremiumActivated,
     );
   }
 

@@ -49,23 +49,6 @@ class PremiumTeaserCard extends StatelessWidget {
   /// op, zodat de backend nu de ontgrendelde inhoud teruggeeft.
   final VoidCallback onPremiumActivated;
 
-  Future<void> _discoverPremium(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final trialEndsAt = await showPremiumInfoSheet(context, accessToken: accessToken);
-    if (trialEndsAt == null) return;
-
-    onPremiumActivated();
-    // v2.19.12: rustig melden, en meteen zeggen wat er na afloop gebeurt.
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'Je Premium-proefperiode loopt tot ${_formatDate(trialEndsAt)}. '
-          'Daarna ga je gewoon terug naar Free — je gegevens blijven bewaard.',
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -81,7 +64,7 @@ class PremiumTeaserCard extends StatelessWidget {
                 Icon(icon, size: 20, color: AppColors.textSecondary),
                 const SizedBox(width: 12),
                 Expanded(child: Text(title, style: textTheme.titleMedium)),
-                const _PremiumBadge(),
+                const PremiumBadge(),
               ],
             ),
             const SizedBox(height: 8),
@@ -93,7 +76,11 @@ class PremiumTeaserCard extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                 ),
-                onPressed: () => _discoverPremium(context),
+                onPressed: () => discoverPremium(
+                  context,
+                  accessToken: accessToken,
+                  onPremiumActivated: onPremiumActivated,
+                ),
                 child: const Text('Ontdek Premium'),
               ),
             ),
@@ -104,8 +91,33 @@ class PremiumTeaserCard extends StatelessWidget {
   }
 }
 
-class _PremiumBadge extends StatelessWidget {
-  const _PremiumBadge();
+/// "Ontdek Premium": het infoblad tonen en, als de proefperiode start, het
+/// scherm laten herladen + rustig melden tot wanneer die loopt. Gedeeld door
+/// [PremiumTeaserCard] en de vergrendelde recepten.
+Future<void> discoverPremium(
+  BuildContext context, {
+  required String accessToken,
+  required VoidCallback onPremiumActivated,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final trialEndsAt = await showPremiumInfoSheet(context, accessToken: accessToken);
+  if (trialEndsAt == null) return;
+
+  onPremiumActivated();
+  // v2.19.12: rustig melden, en meteen zeggen wat er na afloop gebeurt.
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        'Je Premium-proefperiode loopt tot ${_formatDate(trialEndsAt)}. '
+        'Daarna ga je gewoon terug naar Free — je gegevens blijven bewaard.',
+      ),
+    ),
+  );
+}
+
+/// Klein "🔒 Premium"-label in de blauwe huisstijl.
+class PremiumBadge extends StatelessWidget {
+  const PremiumBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +146,7 @@ class _PremiumBadge extends StatelessWidget {
 /// denken mee.") met de mogelijkheid om 7 dagen gratis te proberen
 /// (v2.19.12, Fase 6 stap 5 — nog zonder echte betaling). Noemt alleen wat
 /// Premium nú echt doet (Quick Session sinds Fase 7, Smart Reschedule sinds
-/// Fase 9) — uitbreiden zodra er
+/// Fase 9, alle recepten sinds Fase 11) — uitbreiden zodra er
 /// een nieuwe Premium-functie echt bestaat. Geeft de einddatum van de proefperiode terug als
 /// die gestart is, anders `null`.
 Future<DateTime?> showPremiumInfoSheet(BuildContext context, {required String accessToken}) {
@@ -225,6 +237,12 @@ class _PremiumInfoSheetState extends State<_PremiumInfoSheet> {
               leading: Icon(Icons.local_fire_department_outlined),
               title: Text('Persoonlijk caloriedoel'),
               subtitle: Text('Een richtwaarde als range, afgestemd op je doel en je gewicht.'),
+            ),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.restaurant_menu),
+              title: Text('Alle recepten'),
+              subtitle: Text('Meer maaltijdideeën die passen bij je doel, met ingrediënten en bereiding.'),
             ),
             const SizedBox(height: 8),
             Text(

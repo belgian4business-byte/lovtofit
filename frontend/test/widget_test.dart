@@ -21,6 +21,7 @@ import 'package:lovtofit_app/train_screen.dart';
 import 'package:lovtofit_app/widgets/energy_check_sheet.dart';
 import 'package:lovtofit_app/widgets/exercise_photo.dart';
 import 'package:lovtofit_app/widgets/premium_teaser_card.dart';
+import 'package:lovtofit_app/widgets/recipe_list_card.dart';
 import 'package:lovtofit_app/widgets/settings_menu_button.dart';
 import 'package:lovtofit_app/workout_models.dart';
 import 'package:lovtofit_app/workout_screen.dart';
@@ -545,8 +546,8 @@ void main() {
       expect(find.text('Gewicht loggen'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, 'Gewicht (kg)'), findsOneWidget);
       expect(find.widgetWithText(AppGradientButton, 'Gewicht opslaan'), findsOneWidget);
-      // Trend-, water- en caloriedoel-kaart laden allemaal tegelijk.
-      expect(find.byType(CircularProgressIndicator), findsNWidgets(3));
+      // Trend-, water-, caloriedoel- en receptenkaart laden allemaal tegelijk.
+      expect(find.byType(CircularProgressIndicator), findsNWidgets(4));
 
       // Laat de (in deze test onbereikbare) trend/water-fetches op tijd
       // aflopen zodat er geen hangende timer overblijft na de test.
@@ -1061,6 +1062,127 @@ void main() {
 
       expect(find.text('Opslaan lukte niet. Probeer het opnieuw.'), findsOneWidget);
       expect(find.byType(ProfileEditScreen), findsOneWidget);
+    });
+  });
+
+  group('RecipeListCard', () {
+    Recipe recipe(String name, String mealType, {bool locked = false}) => Recipe.fromJson({
+          'id': name,
+          'name': name,
+          'goal': 'GENERAL',
+          'mealType': mealType,
+          'description': 'Omschrijving van $name',
+          'kcalMin': 330,
+          'kcalMax': 400,
+          'locked': locked,
+          'ingredients': locked ? null : ['2 eieren'],
+          'steps': locked ? null : ['Kook de eieren.'],
+        });
+
+    Future<void> pumpCard(WidgetTester tester, List<Recipe> recipes, {List<String> goals = const ['GENERAL']}) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RecipeListCard(
+              goals: goals,
+              recipes: recipes,
+              accessToken: 'test-token',
+              onPremiumActivated: () {},
+            ),
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('Free: per maaltijd gegroepeerd, kcal als range, vergrendelde met Premium-label', (tester) async {
+      await pumpCard(tester, [
+        recipe('Boterham met ei', 'BREAKFAST'),
+        recipe('Couscoussalade', 'LUNCH', locked: true),
+        recipe('Wokschotel', 'DINNER'),
+        recipe('Linzencurry', 'DINNER', locked: true),
+        recipe('Appel met pindakaas', 'SNACK', locked: true),
+      ]);
+
+      expect(find.text('Recepten voor jou'), findsOneWidget);
+      expect(find.text('Afgestemd op algemeen gezond'), findsOneWidget);
+      for (final heading in ['Ontbijt', 'Lunch', 'Diner', 'Tussendoor']) {
+        expect(find.text(heading), findsOneWidget);
+      }
+      expect(find.text('330–400 kcal'), findsNWidgets(5));
+      expect(find.byType(PremiumBadge), findsNWidgets(3));
+      expect(find.text('Nog 3 recepten met Premium.'), findsOneWidget);
+      expect(find.text('Ontdek Premium'), findsOneWidget);
+    });
+
+    testWidgets('tik op een vergrendeld recept: het Premium-infoblad (met recepten) opent', (tester) async {
+      await pumpCard(tester, [recipe('Couscoussalade', 'LUNCH', locked: true)]);
+
+      await tester.tap(find.text('Couscoussalade'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Probeer 7 dagen gratis'), findsOneWidget);
+      expect(find.text('Alle recepten'), findsOneWidget);
+    });
+
+    testWidgets('Premium: niets vergrendeld, geen label en geen "Ontdek Premium"', (tester) async {
+      await pumpCard(tester, [
+        recipe('Overnight oats', 'BREAKFAST'),
+        recipe('Zalm met rijst', 'DINNER'),
+      ], goals: ['BUILD_MUSCLE', 'GENERAL']);
+
+      expect(find.text('Afgestemd op spieropbouw en algemeen gezond'), findsOneWidget);
+      expect(find.byType(PremiumBadge), findsNothing);
+      expect(find.text('Ontdek Premium'), findsNothing);
+      // Lege maaltijden krijgen geen kopje.
+      expect(find.text('Lunch'), findsNothing);
+    });
+
+    testWidgets('vergrendeld recept zonder ingrediënten/bereiding parseert zonder fout', (tester) async {
+      final locked = recipe('Linzencurry', 'DINNER', locked: true);
+      expect(locked.ingredients, isNull);
+      expect(locked.steps, isNull);
+      expect(locked.kcalRange, '330–400 kcal');
+    });
+  });
+
+  group('NutritionScreen recepten', () {
+    testWidgets('haalt GET /recipes op en toont de receptenkaart', (tester) async {
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/recipes')) {
+          return http.Response(
+            jsonEncode({
+              'goals': ['LOSE_WEIGHT'],
+              'access': 'PREMIUM_REQUIRED',
+              'recipes': [
+                {
+                  'id': '1', 'name': 'Griekse yoghurt met bessen', 'goal': 'LOSE_WEIGHT', 'mealType': 'BREAKFAST',
+                  'description': 'Fris ontbijt.', 'kcalMin': 280, 'kcalMax': 350, 'locked': false,
+                  'ingredients': ['200 g yoghurt'], 'steps': ['Schep in een kom.'],
+                },
+                {
+                  'id': '2', 'name': 'Kabeljauw met broccoli', 'goal': 'LOSE_WEIGHT', 'mealType': 'DINNER',
+                  'description': 'Lichte vismaaltijd.', 'kcalMin': 330, 'kcalMax': 400, 'locked': true,
+                  'ingredients': null, 'steps': null,
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('', 500);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: NutritionScreen(accessToken: 'test-token')));
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(find.text('Recepten voor jou'), 200, scrollable: find.byType(Scrollable).first);
+      }, () => client);
+
+      expect(find.text('Recepten voor jou'), findsOneWidget);
+      expect(find.text('Afgestemd op afvallen'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Kabeljauw met broccoli'), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.text('280–350 kcal'), findsOneWidget);
+      expect(find.text('Nog 1 recept met Premium.'), findsOneWidget);
     });
   });
 }
