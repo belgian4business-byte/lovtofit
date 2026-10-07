@@ -8,14 +8,68 @@ describe('RecipesService', () => {
     goal: { findMany: ReturnType<typeof vi.fn> };
     recipe: { findMany: ReturnType<typeof vi.fn> };
   };
+  let featureAccess: { canUse: ReturnType<typeof vi.fn> };
   let service: RecipesService;
+
+  const row = (name: string, isFree: boolean) => ({
+    id: name,
+    name,
+    goal: RecipeGoal.GENERAL,
+    mealType: MealType.DINNER,
+    description: `Omschrijving ${name}`,
+    ingredients: ['1 ui'],
+    steps: ['Snijd de ui.'],
+    kcalMin: 400,
+    kcalMax: 500,
+    isFree,
+  });
 
   beforeEach(() => {
     prisma = {
       goal: { findMany: vi.fn().mockResolvedValue([]) },
       recipe: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    service = new RecipesService(prisma as never);
+    featureAccess = { canUse: vi.fn().mockResolvedValue(false) };
+    service = new RecipesService(prisma as never, featureAccess as never);
+  });
+
+  it('vraagt CAN_USE_RECIPES aan de FeatureAccessService (geen eigen premium-check)', async () => {
+    await service.getForUser('user-1');
+
+    expect(featureAccess.canUse).toHaveBeenCalledWith('user-1', 'CAN_USE_RECIPES');
+  });
+
+  it('Free: gratis recepten volledig, de rest vergrendeld zonder ingrediënten en bereiding', async () => {
+    prisma.recipe.findMany.mockResolvedValue([row('Gratis', true), row('Premium', false)]);
+
+    const result = await service.getForUser('user-1');
+
+    expect(result.access).toBe('PREMIUM_REQUIRED');
+    const [open, locked] = result.recipes;
+    expect(open).toMatchObject({ name: 'Gratis', locked: false, ingredients: ['1 ui'], steps: ['Snijd de ui.'] });
+    // Teaser: naam, omschrijving en kcal-range wel; de inhoud niet.
+    expect(locked).toMatchObject({
+      name: 'Premium',
+      locked: true,
+      description: 'Omschrijving Premium',
+      kcalMin: 400,
+      kcalMax: 500,
+      ingredients: null,
+      steps: null,
+    });
+    // `isFree` is een intern seed-veld, geen deel van het antwoord.
+    expect(open).not.toHaveProperty('isFree');
+    expect(locked).not.toHaveProperty('isFree');
+  });
+
+  it('Premium (CAN_USE_RECIPES): alles open', async () => {
+    featureAccess.canUse.mockResolvedValue(true);
+    prisma.recipe.findMany.mockResolvedValue([row('Gratis', true), row('Premium', false)]);
+
+    const result = await service.getForUser('user-1');
+
+    expect(result.access).toBe('FULL');
+    expect(result.recipes.every((recipe) => !recipe.locked && recipe.ingredients !== null)).toBe(true);
   });
 
   it('kijkt alleen naar ACTIEVE doelen en haalt de recepten van het bijbehorende recept-doel op', async () => {
@@ -38,13 +92,20 @@ describe('RecipesService', () => {
 
     const select = prisma.recipe.findMany.mock.calls[0][0].select;
     expect(Object.keys(select).sort()).toEqual(
-      ['description', 'goal', 'id', 'ingredients', 'kcalMax', 'kcalMin', 'mealType', 'name', 'steps'].sort(),
+      ['description', 'goal', 'id', 'ingredients', 'isFree', 'kcalMax', 'kcalMin', 'mealType', 'name', 'steps'].sort(),
     );
   });
 });
 
 // De vaste set uit de seed moet zich aan de regels van Fase 11 houden.
 describe('seed-recepten (prisma/seed-data/recipes.ts)', () => {
+  it('freemium: per recept-doel precies 2 gratis recepten (ontbijt + diner), de rest Premium', () => {
+    for (const goal of Object.values(RecipeGoal)) {
+      const free = RECIPES.filter((recipe) => recipe.goal === goal && recipe.isFree);
+      expect(free.map((recipe) => recipe.mealType).sort(), goal).toEqual([MealType.BREAKFAST, MealType.DINNER]);
+    }
+  });
+
   it('4 à 6 recepten per recept-doel', () => {
     for (const goal of Object.values(RecipeGoal)) {
       const count = RECIPES.filter((recipe) => recipe.goal === goal).length;

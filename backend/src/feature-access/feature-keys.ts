@@ -24,6 +24,9 @@ export const FEATURES = {
   CAN_USE_QUICK_SESSION: { description: 'Training aanpassen aan de tijd die je vandaag hebt', plans: ['PREMIUM'] },
   CAN_USE_ADVANCED_PROGRESS: { description: 'Gedetailleerde progressieanalyse', plans: ['PREMIUM'] },
   CAN_USE_WEEKLY_COACH_REVIEW: { description: 'Persoonlijke weekanalyse van de coach', plans: ['PREMIUM'] },
+  // Fase 11: de volledige receptenbibliotheek. De gratis recepten (`isFree`)
+  // zijn ook voor FREE zichtbaar; deze sleutel ontgrendelt de rest.
+  CAN_USE_RECIPES: { description: 'Alle recepten en maaltijdsuggesties', plans: ['PREMIUM'] },
 } as const satisfies Record<string, { description: string; plans: readonly SubscriptionPlan[] }>;
 
 export type FeatureKey = keyof typeof FEATURES;

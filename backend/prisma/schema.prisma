@@ -415,6 +415,9 @@ model Recipe {
   // Kcal altijd als range (schatting per portie), nooit één getal.
   kcalMin     Int
   kcalMax     Int
+  // Fase 11, stap 2 (freemium): dit recept is ook voor FREE volledig
+  // zichtbaar. De rest vraagt CAN_USE_RECIPES (alleen PREMIUM).
+  isFree      Boolean    @default(false)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 

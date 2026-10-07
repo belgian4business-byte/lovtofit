@@ -10,6 +10,9 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * De kcal-ranges zijn grove schattingen per portie op basis van gangbare
  * voedingswaarden, geen exacte berekening. Ingrediënten zijn voor één
  * portie. Upsert op `name`, dus de seed is herhaalbaar.
+ *
+ * Freemium (stap 2): per recept-doel zijn 2 recepten gratis (`isFree`): het
+ * ontbijt en één diner. De rest vraagt CAN_USE_RECIPES (Premium).
  */
 export const RECIPES: Prisma.RecipeCreateInput[] = [
   // — Afvallen: lichter, eiwitrijk —
@@ -33,6 +36,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 280,
     kcalMax: 350,
+    isFree: true,
   },
   {
     name: 'Groenteomelet met spinazie en champignons',
@@ -80,6 +84,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 360,
     kcalMax: 440,
+    isFree: true,
   },
   {
     name: 'Kabeljauw met broccoli en krieltjes',
@@ -135,6 +140,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 560,
     kcalMax: 660,
+    isFree: true,
   },
   {
     name: 'Volkoren wraps met kip en avocado',
@@ -180,6 +186,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 720,
     kcalMax: 850,
+    isFree: true,
   },
   {
     name: 'Zalm met rijst en sperziebonen',
@@ -228,6 +235,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 330,
     kcalMax: 400,
+    isFree: true,
   },
   {
     name: 'Couscoussalade met feta en groenten',
@@ -273,6 +281,7 @@ export const RECIPES: Prisma.RecipeCreateInput[] = [
     ],
     kcalMin: 540,
     kcalMax: 630,
+    isFree: true,
   },
   {
     name: 'Linzencurry met rijst',
