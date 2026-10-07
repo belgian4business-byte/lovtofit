@@ -895,6 +895,61 @@ standaardschema ("je volgende training staat klaar") met een rustige
 teaser, alleen na een échte gemiste training. "Deze week" betekent op Home
 overal dezelfde kalenderweek.
 
+### FASE 10 — Profiel-scherm
+Doel: een echt profiel-scherm (bereikbaar via het tandwiel rechtsboven) waar de gebruiker zijn gegevens ziet en kan aanpassen. Eén stap per keer.
+Regel: blauwe huisstijl, consistent met de rest; wijzigingen gaan via de bestaande API/engines.
+
+Voortgang Fase 10:
+1. (klaar) Profiel tonen. Nieuw `GET /onboarding` (naast de bestaande
+   POST): e-mail, de **actieve** doelen (gepauzeerde blijven bewaard maar
+   tellen niet mee) en de trainingsvoorkeuren (`preferences: null` zolang
+   de onboarding niet af is). App: `ProfileScreen`
+   (`lib/profile_screen.dart`) met de kaarten Account, Doel en Training
+   (locatie, apparatuur, frequentie, duur per training, niveau). De
+   Nederlandse labels staan op één plek, `lib/profile_options.dart`,
+   gedeeld met de onboarding. Locatie `OUTDOOR` krijgt alleen bij weergave
+   het label "🌳 Buiten" (de onboarding biedt het nog niet aan).
+2. (klaar) Profiel aanpassen. `ProfileEditScreen`
+   (`lib/profile_edit_screen.dart`, knop "Profiel aanpassen"): alle keuzes
+   op één scherm, zelfde blauwe keuzeknoppen als de onboarding. Opslaan via
+   de **bestaande** `POST /onboarding`, geen nieuwe API: een doel dat niet
+   meer gekozen is → `PAUSED` + `pausedAt`, nooit verwijderd of
+   overschreven; een eerder gepauzeerd doel opnieuw kiezen → een nieuwe
+   ACTIVE-rij, de gepauzeerde rij blijft onaangeroerd (getest + live in de
+   database nagekeken: Afvallen → Fit worden → Afvallen = 3 rijen). In het
+   scherm: "Een doel dat je uitzet, wordt bewaard als gepauzeerd — niet
+   gewist." Zonder doel of apparatuur geen opslaan; "Geen apparatuur" sluit
+   de rest uit (`toggleEquipment`, gedeeld met de onboarding); wie al
+   Buiten heeft, houdt die keuze. De tabs verversen pas bij het wisselen
+   van tab (zelfde `isActive`-patroon als altijd; bewust zo gelaten).
+3. (klaar) Abonnement en kerncijfers. `GET /features` geeft nu ook
+   `subscription: { status, expiresAt }` terug zolang Premium geldt (`null`
+   bij FREE, ook na een verlopen trial, zodat er geen oude einddatum
+   verschijnt). Het plan blijft alleen door de `FeatureAccessService`
+   bepaald; de app zet het alleen om in tekst: "Free", "Premium
+   (proefperiode)" + "Proefperiode loopt tot 14 okt 2026", "Premium
+   (opgezegd)" + "Toegang tot …", of "Premium". Kaart "Jouw cijfers":
+   totaal trainingen + streak uit het bestaande `GET /motivation/status`
+   (zelfde streaktekst als Home); zonder onboarding (404) geen cijferkaart.
+   Bewust **geen** proefperiode-knop op het profiel: die zit al bij de
+   Premium-teasers.
+4. (klaar) Uitloggen verplaatst. Het tandwiel (`SettingsMenuButton`) opent
+   het profiel nu direct (het menu had nog maar één item). "Uitloggen"
+   staat onderaan het profiel, met de bevestiging "Uitloggen?", en ook op
+   het foutscherm, zodat uitloggen zonder verbinding kan. Werkt zoals
+   vroeger: terug naar het inlogscherm (`popUntil(isFirst)`); het token
+   staat alleen in het geheugen.
+
+Testaccount: `profiel-test@example.com` / `testtest123` (proefperiode tot
+14 okt 2026; doelgeschiedenis met gepauzeerde rijen).
+
+Bewezen: de gebruiker ziet en wijzigt zijn onboarding-gegevens via het
+tandwiel, zonder dat er geschiedenis verloren gaat: een doelwissel pauzeert
+het oude doel in plaats van het te overschrijven, via dezelfde API als de
+onboarding. Het profiel toont het abonnement zoals de backend het
+besliste (inclusief de trial-einddatum) en de kerncijfers uit de Motivation
+Engine. Uitloggen zit nu op het profiel en werkt ook zonder verbinding.
+
 ## Oefeningenbibliotheek & foto's (lopend)
 Doel: de oefening-foto's (frontend/assets/exercises/, 26 oefeningen × man/
 vrouw/duo) in de app tonen. In stappen.
@@ -947,14 +1002,6 @@ vrouw/duo) in de app tonen. In stappen.
    oefeningen hebben een foto**, geen placeholders meer in de huidige
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
-
-## Huidige fase: FASE 10 — Profiel-scherm
-Doel: een echt profiel-scherm (bereikbaar via het tandwiel rechtsboven) waar de gebruiker zijn gegevens ziet en kan aanpassen. Eén stap per keer.
-1. Profiel-scherm met de onboarding-gegevens tonen: doel, locatie, apparatuur, frequentie, niveau, + e-mail.
-2. Deze gegevens kunnen aanpassen. Bij doelwijziging: oud doel op PAUSED (nooit overschrijven), conform de datamodel-regel.
-3. Abonnementstatus tonen (Free/Premium, trial-einddatum) + een paar kerncijfers (totaal trainingen, streak).
-4. Uitloggen verplaatsen naar dit scherm.
-Regel: blauwe huisstijl, consistent met de rest; wijzigingen gaan via de bestaande API/engines.
 
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
