@@ -950,6 +950,64 @@ onboarding. Het profiel toont het abonnement zoals de backend het
 besliste (inclusief de trial-einddatum) en de kerncijfers uit de Motivation
 Engine. Uitloggen zit nu op het profiel en werkt ook zonder verbinding.
 
+### FASE 11 — Recepten & maaltijdsuggesties
+Doel: op de Nutrition-tab passende recepten/maaltijdsuggesties tonen, afgestemd op het doel van de gebruiker. Voeding blijft ondersteunend en simpel (blueprint v1.3), geen verplicht loggen. Eén stap per keer.
+Regel: geen medische claims, kcal altijd als range, blauwe huisstijl.
+
+Voortgang Fase 11:
+1. (klaar) Datamodel + seed + endpoint. Model `Recipe` (migratie
+   `add_recipes`): naam (uniek), `goal` (eigen tag `RecipeGoal`:
+   LOSE_WEIGHT = lichter/eiwitrijk, BUILD_MUSCLE = eiwitrijk/calorierijker,
+   GENERAL = algemeen gezond), `mealType` (BREAKFAST/LUNCH/DINNER/SNACK),
+   omschrijving, ingrediënten en bereiding (`String[]`, voor 1 portie) en
+   `kcalMin`/`kcalMax` (altijd een range, grove schatting per portie). Seed
+   `prisma/seed-data/recipes.ts` (upsert op naam, herhaalbaar): 15
+   recepten, 5 per doel (ontbijt, lunch, 2× diner, snack), door de
+   gebruiker nagelezen. `GET /recipes` (JWT, module `src/recipes/`):
+   recepten bij de **actieve** doelen, gesorteerd op maaltijd en naam.
+   Koppeling in `recipeGoalsFor()` (`recipe-goals.ts`): Afvallen en
+   Spieren opbouwen een eigen set; Sterker worden, Conditie verbeteren en
+   Fit worden → GENERAL; meerdere doelen → de sets samen; geen actief doel
+   → GENERAL. Seed-tests bewaken de regels: 4-6 per doel, alle
+   maaltijdtypes, min < max, geen woorden als "geneest", "detox" of
+   "vetverbranding".
+2. (klaar) Freemium. Nieuwe functie `CAN_USE_RECIPES` (alleen PREMIUM) =
+   de volledige receptenbibliotheek, via de `FeatureAccessService`.
+   Welke recepten gratis zijn, staat per recept vast in `Recipe.isFree`
+   (migratie `add_recipe_is_free`), niet als "de eerste N": per doel 2
+   gratis (het ontbijt en één diner). `GET /recipes` geeft `access`
+   (`FULL` / `PREMIUM_REQUIRED`) en per recept `locked`. Een vergrendeld
+   recept gaat mee als teaser (naam, maaltijd, omschrijving, kcal-range);
+   ingrediënten en bereiding zijn `null` en verlaten de server niet (zelfde
+   patroon als het caloriedoel). `isFree` zelf zit niet in het antwoord.
+3. (klaar) Receptenlijst op de Nutrition-tab. `RecipeListCard`
+   (`lib/widgets/recipe_list_card.dart`, onderaan de tab, onder het
+   gewichtsformulier): "Recepten voor jou", "Afgestemd op …", per maaltijd
+   gegroepeerd (Ontbijt, Lunch, Diner, Tussendoor; lege maaltijden zonder
+   kopje), per recept naam, omschrijving en kcal-range. Vergrendelde
+   recepten gedimd met `PremiumBadge`; tikken opent het Premium-infoblad,
+   onderaan "Nog N recepten met Premium." + "Ontdek Premium". Na de
+   proefperiode laden de recepten en het caloriedoel opnieuw. De "Ontdek
+   Premium"-flow (`discoverPremium`) en het label zijn gedeeld met
+   `PremiumTeaserCard`; het Premium-infoblad noemt nu ook "Alle recepten".
+   Eigen laad- en foutstatus: lukt het ophalen niet, dan werkt de rest van
+   de tab gewoon.
+4. (klaar) Recept-detailscherm. `RecipeDetailScreen`
+   (`lib/recipe_detail_screen.dart`): naam, labels voor maaltijd en
+   kcal-range, omschrijving, "Kcal is een schatting per portie.", kaart
+   Ingrediënten ("Voor 1 portie") en kaart Bereiding (genummerde stappen).
+   Geen nieuwe API: `GET /recipes` stuurt bij open recepten de inhoud al
+   mee. Alleen open recepten openen het detail; een vergrendeld recept
+   opent het Premium-infoblad (getest).
+
+Bewezen: de Nutrition-tab toont recepten die bij het doel van de gebruiker
+passen, met de kcal altijd als range en zonder medische claims. Free krijgt
+per doel 2 volledige recepten en ziet de rest als rustige Premium-teaser;
+de backend beslist via `CAN_USE_RECIPES`, en de inhoud van vergrendelde
+recepten komt nooit in de app. Premium opent alle recepten meteen, ook
+direct na het starten van de proefperiode. Een open recept toont
+ingrediënten en bereiding op een eigen scherm.
+
 ## Oefeningenbibliotheek & foto's (lopend)
 Doel: de oefening-foto's (frontend/assets/exercises/, 26 oefeningen × man/
 vrouw/duo) in de app tonen. In stappen.
@@ -1002,16 +1060,6 @@ vrouw/duo) in de app tonen. In stappen.
    oefeningen hebben een foto**, geen placeholders meer in de huidige
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
-
-## Huidige fase: FASE 11 — Recepten & maaltijdsuggesties
-Doel: op de Nutrition-tab passende recepten/maaltijdsuggesties tonen, afgestemd op het doel van de gebruiker. Voeding blijft ondersteunend en simpel (blueprint v1.3), geen verplicht loggen. Eén stap per keer.
-Keuzes: vaste set recepten in de database; afgestemd op doel (afvallen = lichter/eiwitrijk, spieropbouw = eiwitrijk/calorierijker, fit/sterker = algemeen gezond); freemium: basis gratis, meer achter Premium (CAN_USE_RECIPES via FeatureAccessService).
-Stappen:
-1. Backend: recepten-datamodel + seed (naam, doel-tag, korte omschrijving, ingrediënten, bereiding, globale kcal als range, ~licht/ontbijt/lunch/diner). Endpoint dat recepten bij het doel teruggeeft.
-2. Backend: freemium — Free toont een paar recepten, de rest vergrendeld via FeatureAccessService.
-3. Flutter: receptenlijst op de Nutrition-tab (blauwe huisstijl), met vergrendelde Premium-teasers.
-4. Flutter: recept-detailscherm (ingrediënten + bereiding).
-Regel: geen medische claims, kcal altijd als range, blauwe huisstijl.
 
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
