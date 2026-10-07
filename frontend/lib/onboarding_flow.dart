@@ -56,18 +56,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _toggleEquipment(String value) {
     setState(() {
-      if (value == 'NONE') {
-        _equipment
-          ..clear()
-          ..add('NONE');
-        return;
-      }
-      _equipment.remove('NONE');
-      if (_equipment.contains(value)) {
-        _equipment.remove(value);
-      } else {
-        _equipment.add(value);
-      }
+      final next = toggleEquipment(_equipment, value);
+      _equipment
+        ..clear()
+        ..addAll(next);
     });
   }
 

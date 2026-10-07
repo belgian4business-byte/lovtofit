@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
+import 'profile_edit_screen.dart';
 import 'profile_options.dart';
 
 /// Profiel-scherm (CLAUDE.md Fase 10, stap 1), bereikbaar via het tandwiel
 /// rechtsboven. Toont wat de gebruiker in de onboarding koos
-/// (`GET /onboarding`) plus het e-mailadres. Nog alleen weergave;
-/// aanpassen komt in stap 2.
+/// (`GET /onboarding`) plus het e-mailadres. Aanpassen via
+/// [ProfileEditScreen] (stap 2).
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.accessToken});
 
@@ -61,6 +62,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _edit(Map<String, dynamic> preferences) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ProfileEditScreen(
+          accessToken: widget.accessToken,
+          initial: ProfileChoices(
+            goals: _goals.toSet(),
+            location: preferences['location'] as String,
+            equipment: (preferences['equipment'] as List).cast<String>().toSet(),
+            sessionDuration: preferences['sessionDuration'] as String,
+            weeklyFrequency: preferences['weeklyFrequency'] as int,
+            level: preferences['level'] as String,
+          ),
+        ),
+      ),
+    );
+    if (saved != true || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profiel opgeslagen')));
+    await _load();
   }
 
   @override
@@ -134,6 +156,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _Field('Duur per training', labelFor(durationOptions, preferences['sessionDuration'] as String)),
               _Field('Niveau', labelFor(levelOptions, preferences['level'] as String)),
             ]),
+          if (preferences != null) ...[
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () => _edit(preferences),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Profiel aanpassen'),
+            ),
+          ],
         ],
       ),
     );

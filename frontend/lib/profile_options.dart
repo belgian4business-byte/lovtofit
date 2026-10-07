@@ -47,6 +47,15 @@ String labelFor<T>(Map<String, T> options, T value, {Map<T, String> extra = cons
   return extra[value] ?? '$value';
 }
 
+/// "Geen apparatuur" sluit de rest uit (en omgekeerd). Geeft de nieuwe set
+/// terug; gedeeld door onboarding en profiel.
+Set<String> toggleEquipment(Set<String> current, String value) {
+  if (value == 'NONE') return {'NONE'};
+  final next = {...current}..remove('NONE');
+  if (!next.remove(value)) next.add(value);
+  return next;
+}
+
 /// Alleen voor weergave: de backend kent ook `OUTDOOR` (zie CLAUDE.md,
 /// openstaand punt 2), al kan je het in de onboarding nog niet kiezen.
 const extraLocationLabels = {'OUTDOOR': '🌳 Buiten'};

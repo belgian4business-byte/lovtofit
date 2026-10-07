@@ -12,6 +12,7 @@ import 'package:lovtofit_app/main.dart';
 import 'package:lovtofit_app/main_shell.dart';
 import 'package:lovtofit_app/nutrition_screen.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
+import 'package:lovtofit_app/profile_edit_screen.dart';
 import 'package:lovtofit_app/profile_screen.dart';
 import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/register_screen.dart';
@@ -730,6 +731,8 @@ void main() {
       expect(find.text('3× per week'), findsOneWidget);
       expect(find.text('⏱ 30 min'), findsOneWidget);
       expect(find.text('Beginner'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Profiel aanpassen'), 100);
+      expect(find.text('Profiel aanpassen'), findsOneWidget);
     });
 
     testWidgets('locatie Buiten (nog niet in de onboarding) krijgt toch een label', (tester) async {
@@ -772,6 +775,138 @@ void main() {
 
       // Laat de (in deze test onbereikbare) fetch op tijd aflopen.
       await tester.pump(const Duration(seconds: 6));
+    });
+  });
+
+  group('ProfileEditScreen', () {
+    const initial = ProfileChoices(
+      goals: {'LOSE_WEIGHT'},
+      location: 'HOME',
+      equipment: {'DUMBBELLS'},
+      sessionDuration: 'MIN_30',
+      weeklyFrequency: 3,
+      level: 'BEGINNER',
+    );
+
+    // Opent het bewerkscherm vanaf een knop, zodat we de pop-uitkomst zien.
+    Future<List<Object?>> pumpEdit(WidgetTester tester, List<Map<String, dynamic>> posted,
+        {ProfileChoices choices = initial, int status = 201}) async {
+      final results = <Object?>[];
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/onboarding') && request.method == 'POST') {
+          posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response('{}', status);
+        }
+        return http.Response('', 500);
+      });
+      await http.runWithClient(() async {
+        await tester.pumpWidget(MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => results.add(await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => ProfileEditScreen(accessToken: 'test-token', initial: choices)),
+              )),
+              child: const Text('open'),
+            ),
+          ),
+        ));
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+      }, () => client);
+      return results;
+    }
+
+    // ListView bouwt lui: eerst scrollen tot de knop bestaat.
+    Future<void> scrollTo(WidgetTester tester, String text) =>
+        tester.scrollUntilVisible(find.text(text), 100, scrollable: find.byType(Scrollable).first);
+
+    Future<void> tapSave(WidgetTester tester) async {
+      await tester.tap(find.text('Opslaan'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('doel wisselen: stuurt alles via POST /onboarding en sluit met true', (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      late List<Object?> results;
+      final client = MockClient((request) async {
+        posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response('{}', 201);
+      });
+      await http.runWithClient(() async {
+        results = await pumpEdit(tester, posted);
+        expect(find.textContaining('bewaard als gepauzeerd'), findsNothing);
+
+        await tester.tap(find.text('Afvallen'));
+        await tester.tap(find.text('Fit worden'));
+        await tester.pump();
+        expect(find.textContaining('bewaard als gepauzeerd'), findsOneWidget);
+
+        await scrollTo(tester, '4× per week');
+        await tester.tap(find.text('4× per week'));
+        await tapSave(tester);
+      }, () => client);
+
+      expect(posted.single, {
+        'goals': ['GET_FIT'],
+        'location': 'HOME',
+        'equipment': ['DUMBBELLS'],
+        'sessionDuration': 'MIN_30',
+        'weeklyFrequency': 4,
+        'level': 'BEGINNER',
+      });
+      expect(results, [true]);
+      expect(find.byType(ProfileEditScreen), findsNothing);
+    });
+
+    testWidgets('zonder doel kan je niet opslaan', (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      await pumpEdit(tester, posted);
+
+      await tester.tap(find.text('Afvallen'));
+      await tester.pump();
+      await tapSave(tester);
+
+      expect(posted, isEmpty);
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
+    });
+
+    testWidgets('Geen apparatuur sluit de rest uit', (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response('{}', 201);
+      });
+      await http.runWithClient(() async {
+        await pumpEdit(tester, posted);
+        await scrollTo(tester, 'Geen apparatuur');
+        await tester.tap(find.text('Geen apparatuur'));
+        await tapSave(tester);
+      }, () => client);
+
+      expect(posted.single['equipment'], ['NONE']);
+    });
+
+    testWidgets('locatie Buiten blijft kiesbaar voor wie het al heeft', (tester) async {
+      await pumpEdit(tester, [], choices: const ProfileChoices(
+        goals: {'GET_FIT'},
+        location: 'OUTDOOR',
+        equipment: {'NONE'},
+        sessionDuration: 'MIN_15',
+        weeklyFrequency: 2,
+        level: 'ADVANCED',
+      ));
+      expect(find.text('🌳 Buiten'), findsOneWidget);
+    });
+
+    testWidgets('opslaan mislukt: foutmelding, scherm blijft open', (tester) async {
+      final client = MockClient((request) async => http.Response('{}', 400));
+      await http.runWithClient(() async {
+        await pumpEdit(tester, [], status: 400);
+        await tapSave(tester);
+      }, () => client);
+
+      expect(find.text('Opslaan lukte niet. Probeer het opnieuw.'), findsOneWidget);
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
     });
   });
 }

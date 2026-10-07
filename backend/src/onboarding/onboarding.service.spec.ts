@@ -68,6 +68,27 @@ describe('OnboardingService', () => {
     expect(prisma.goal.createMany).not.toHaveBeenCalled();
   });
 
+  it('profiel aanpassen: een eerder gepauzeerd doel opnieuw kiezen maakt een nieuw actief doel; de gepauzeerde rij blijft onaangeroerd', async () => {
+    // Alleen ACTIEVE doelen worden opgehaald, dus gepauzeerde rijen kunnen
+    // nooit gewijzigd of overschreven worden.
+    prisma.goal.findMany.mockResolvedValueOnce([
+      { id: 'goal-2', userId: 'user-1', type: GoalType.GET_FIT, status: GoalStatus.ACTIVE },
+    ]);
+
+    await onboardingService.submit('user-1', dto); // LOSE_WEIGHT was eerder gepauzeerd
+
+    expect(prisma.goal.findMany.mock.calls[0][0]).toEqual({
+      where: { userId: 'user-1', status: GoalStatus.ACTIVE },
+    });
+    expect(prisma.goal.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['goal-2'] } },
+      data: { status: GoalStatus.PAUSED, pausedAt: expect.any(Date) },
+    });
+    expect(prisma.goal.createMany).toHaveBeenCalledWith({
+      data: [{ userId: 'user-1', type: GoalType.LOSE_WEIGHT }],
+    });
+  });
+
   describe('get (profiel-scherm)', () => {
     it('geeft e-mail, alleen de actieve doelen en de voorkeuren terug', async () => {
       const preferences = { location: 'HOME', equipment: ['NONE'], weeklyFrequency: 3 };
