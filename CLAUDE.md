@@ -1061,6 +1061,15 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
+## Huidige fase: FASE 12 — Warming-up & cooldown (gratis)
+Doel: elke training krijgt een warming-up vooraf en een cooldown na afloop, met de bestaande cardio-/mobiliteitsoefeningen (die staan al in de database met foto's maar worden nog niet ingepland). Gratis voor iedereen. Veilig: alles blijft binnen Decision Engine + Rule Guard. Eén stap per keer.
+Stappen (voorstel, morgen verfijnen):
+1. Backend: template uitbreiden met een warming-up-blok (mobiliteit/lichte cardio) vooraan en een cooldown-blok (stretches) achteraan, rond de bestaande 5 krachtslots.
+2. Backend: de juiste oefeningen kiezen voor die blokken (passend bij locatie/apparatuur), via de bestaande engines + Rule Guard.
+3. Flutter: warming-up en cooldown tonen in de trainingsflow, visueel onderscheiden van het hoofddeel.
+4. Testen op telefoon.
+Open punt voor morgen: lengte van warming-up/cooldown (bv. 2-3 oefeningen elk), en of ze overslaanbaar zijn.
+
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
    heeft alleen de slots SQUAT, PUSH, PULL, HINGE en CORE_STABILITY, dus de
