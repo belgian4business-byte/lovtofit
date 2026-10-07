@@ -385,3 +385,39 @@ model PlanFeature {
   @@unique([plan, featureId])
   @@map("plan_features")
 }
+
+// Fase 11 — Recepten & maaltijdsuggesties (blueprint v1.3: voeding blijft
+// ondersteunend en simpel, geen verplicht loggen). Vaste set uit de seed
+// (prisma/seed-data/recipes.ts). `goal` is een recept-tag, geen GoalType:
+// Sterker worden, Conditie verbeteren en Fit worden delen GENERAL.
+enum RecipeGoal {
+  LOSE_WEIGHT  // lichter, eiwitrijk
+  BUILD_MUSCLE // eiwitrijk, calorierijker
+  GENERAL      // algemeen gezond
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+model Recipe {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  goal        RecipeGoal
+  mealType    MealType
+  description String
+  // Per portie, in volgorde. Gewone tekstregels ("150 g kipfilet").
+  ingredients String[]
+  steps       String[]
+  // Kcal altijd als range (schatting per portie), nooit één getal.
+  kcalMin     Int
+  kcalMax     Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([goal])
+  @@map("recipes")
+}

@@ -4,6 +4,7 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 import { SubscriptionPlan } from '../src/generated/prisma/enums.js';
 import { FEATURES } from '../src/feature-access/feature-keys.js';
 import { EXERCISES } from './seed-data/exercises.js';
+import { RECIPES } from './seed-data/recipes.js';
 import { TEMPLATES } from './seed-data/templates.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -58,6 +59,11 @@ async function main() {
     }
   }
   console.log(`Geseed: ${features.length} functies (feature access).`);
+
+  for (const recipe of RECIPES) {
+    await prisma.recipe.upsert({ where: { name: recipe.name }, create: recipe, update: recipe });
+  }
+  console.log(`Geseed: ${RECIPES.length} recepten.`);
 }
 
 main()

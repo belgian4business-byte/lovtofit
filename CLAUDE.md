@@ -1003,6 +1003,16 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
+## Huidige fase: FASE 11 — Recepten & maaltijdsuggesties
+Doel: op de Nutrition-tab passende recepten/maaltijdsuggesties tonen, afgestemd op het doel van de gebruiker. Voeding blijft ondersteunend en simpel (blueprint v1.3), geen verplicht loggen. Eén stap per keer.
+Keuzes: vaste set recepten in de database; afgestemd op doel (afvallen = lichter/eiwitrijk, spieropbouw = eiwitrijk/calorierijker, fit/sterker = algemeen gezond); freemium: basis gratis, meer achter Premium (CAN_USE_RECIPES via FeatureAccessService).
+Stappen:
+1. Backend: recepten-datamodel + seed (naam, doel-tag, korte omschrijving, ingrediënten, bereiding, globale kcal als range, ~licht/ontbijt/lunch/diner). Endpoint dat recepten bij het doel teruggeeft.
+2. Backend: freemium — Free toont een paar recepten, de rest vergrendeld via FeatureAccessService.
+3. Flutter: receptenlijst op de Nutrition-tab (blauwe huisstijl), met vergrendelde Premium-teasers.
+4. Flutter: recept-detailscherm (ingrediënten + bereiding).
+Regel: geen medische claims, kcal altijd als range, blauwe huisstijl.
+
 ## Openstaande punten (later oppakken)
 1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
    heeft alleen de slots SQUAT, PUSH, PULL, HINGE en CORE_STABILITY, dus de

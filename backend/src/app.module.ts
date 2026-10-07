@@ -9,6 +9,7 @@ import { HealthController } from './health/health.controller.js';
 import { MotivationEngineModule } from './motivation-engine/motivation-engine.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { PrismaService } from './prisma/prisma.service.js';
+import { RecipesModule } from './recipes/recipes.module.js';
 import { RecoveryEngineModule } from './recovery-engine/recovery-engine.module.js';
 import { ScheduleModule } from './schedule/schedule.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
@@ -28,6 +29,7 @@ import { WorkoutsModule } from './workouts/workouts.module.js';
     FeatureAccessModule,
     SubscriptionsModule,
     ScheduleModule,
+    RecipesModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, PrismaService],
