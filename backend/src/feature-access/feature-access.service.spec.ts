@@ -154,6 +154,7 @@ describe('FeatureAccessService', () => {
       expect(result.plan).toBe('FREE');
       expect(result.features.CAN_USE_WATER_TRACKING).toBe(true);
       expect(result.features.CAN_USE_CALORIE_RANGE).toBe(false);
+      expect(result.subscription).toBeNull();
     });
 
     it('FA-004: proefperiode zet ook de Premium-functies aan', async () => {
@@ -165,6 +166,27 @@ describe('FeatureAccessService', () => {
       expect(result.plan).toBe('PREMIUM');
       expect(result.features.CAN_USE_WATER_TRACKING).toBe(true);
       expect(result.features.CAN_USE_CALORIE_RANGE).toBe(true);
+      // Profiel-scherm (Fase 10): de trial-einddatum gaat mee.
+      expect(result.subscription).toEqual({ status: 'TRIAL', expiresAt: tomorrow });
+    });
+
+    it('verlopen proefperiode: FREE en geen abonnementsinfo (geen oude einddatum tonen als Premium)', async () => {
+      prisma.feature.findMany.mockResolvedValue(seededRows);
+      prisma.subscription.findFirst.mockResolvedValue({ plan: 'PREMIUM', status: 'TRIAL', expiresAt: yesterday });
+
+      const result = await service.getFeatureAccess('user-1', now);
+
+      expect(result.plan).toBe('FREE');
+      expect(result.subscription).toBeNull();
+    });
+
+    it('lopend Premium-abonnement zonder einddatum: status ACTIVE, expiresAt null', async () => {
+      prisma.feature.findMany.mockResolvedValue(seededRows);
+      prisma.subscription.findFirst.mockResolvedValue({ plan: 'PREMIUM', status: 'ACTIVE', expiresAt: null });
+
+      const result = await service.getFeatureAccess('user-1', now);
+
+      expect(result.subscription).toEqual({ status: 'ACTIVE', expiresAt: null });
     });
 
     it('bevat altijd elke bekende sleutel; een niet-geseede functie staat op false', async () => {

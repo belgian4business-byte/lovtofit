@@ -698,10 +698,29 @@ void main() {
   });
 
   group('ProfileScreen', () {
-    Future<void> pumpProfile(WidgetTester tester, Map<String, dynamic> body) async {
+    const json = {'content-type': 'application/json; charset=utf-8'};
+    const freePlan = {'plan': 'FREE', 'features': {}, 'subscription': null};
+    const someStats = {'totalSessionsCompleted': 13, 'consistencyStreakWeeks': 2};
+
+    // `motivation` null = 404 (onboarding nog niet afgerond).
+    Future<void> pumpProfile(
+      WidgetTester tester,
+      Map<String, dynamic> body, {
+      Map<String, dynamic> features = freePlan,
+      Map<String, dynamic>? motivation = someStats,
+    }) async {
       final client = MockClient((request) async {
-        if (request.url.path.endsWith('/onboarding') && request.method == 'GET') {
-          return http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+        final path = request.url.path;
+        if (path.endsWith('/onboarding') && request.method == 'GET') {
+          return http.Response(jsonEncode(body), 200, headers: json);
+        }
+        if (path.endsWith('/features')) {
+          return http.Response(jsonEncode(features), 200, headers: json);
+        }
+        if (path.endsWith('/motivation/status')) {
+          return motivation == null
+              ? http.Response('{"message":"Onboarding nog niet afgerond"}', 404)
+              : http.Response(jsonEncode(motivation), 200, headers: json);
         }
         return http.Response('', 500);
       });
@@ -710,6 +729,66 @@ void main() {
         await tester.pumpAndSettle();
       }, () => client);
     }
+
+    const someProfile = {
+      'email': 'test@example.com',
+      'goals': ['GET_FIT'],
+      'preferences': {
+        'location': 'HOME',
+        'equipment': ['NONE'],
+        'sessionDuration': 'MIN_30',
+        'weeklyFrequency': 3,
+        'level': 'BEGINNER',
+      },
+    };
+
+    testWidgets('Free: plan Free en de kerncijfers (totaal trainingen, streak)', (tester) async {
+      await pumpProfile(tester, someProfile);
+
+      expect(find.text('Free'), findsOneWidget);
+      expect(find.text('13'), findsOneWidget);
+      expect(find.text('🔥 2 weken op rij op schema'), findsOneWidget);
+    });
+
+    testWidgets('proefperiode: Premium (proefperiode) met de einddatum', (tester) async {
+      await pumpProfile(tester, someProfile, features: {
+        'plan': 'PREMIUM',
+        'features': {},
+        'subscription': {'status': 'TRIAL', 'expiresAt': '2026-10-14T12:00:00.000Z'},
+      });
+
+      expect(find.text('Premium (proefperiode)'), findsOneWidget);
+      expect(find.text('Proefperiode loopt tot'), findsOneWidget);
+      expect(find.text('14 okt 2026'), findsOneWidget);
+    });
+
+    testWidgets('lopend Premium zonder einddatum: geen datumregel', (tester) async {
+      await pumpProfile(tester, someProfile, features: {
+        'plan': 'PREMIUM',
+        'features': {},
+        'subscription': {'status': 'ACTIVE', 'expiresAt': null},
+      });
+
+      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Loopt tot'), findsNothing);
+    });
+
+    testWidgets('nog geen streak: bemoedigende tekst, geen 0', (tester) async {
+      await pumpProfile(tester, someProfile, motivation: {'totalSessionsCompleted': 0, 'consistencyStreakWeeks': 0});
+
+      expect(find.text('Nog geen streak — elke training telt'), findsOneWidget);
+    });
+
+    testWidgets('backend geeft een fout: foutmelding met opnieuw proberen', (tester) async {
+      final client = MockClient((request) async => http.Response('', 500));
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(home: ProfileScreen(accessToken: 'test-token')));
+        await tester.pumpAndSettle();
+      }, () => client);
+
+      expect(find.text('Kon je profiel niet ophalen.'), findsOneWidget);
+      expect(find.text('Opnieuw proberen'), findsOneWidget);
+    });
 
     testWidgets('toont e-mail en de onboarding-keuzes met Nederlandse labels', (tester) async {
       await pumpProfile(tester, {
@@ -726,6 +805,7 @@ void main() {
 
       expect(find.text('test@example.com'), findsOneWidget);
       expect(find.text('Afvallen, Fit worden'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Beginner'), 100);
       expect(find.text('🏠 Thuis'), findsOneWidget);
       expect(find.text('Dumbbells, Elastieken'), findsOneWidget);
       expect(find.text('3× per week'), findsOneWidget);
@@ -748,15 +828,19 @@ void main() {
         },
       });
 
-      expect(find.text('🌳 Buiten'), findsOneWidget);
       expect(find.text('Je doel'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('🌳 Buiten'), 100);
+      expect(find.text('🌳 Buiten'), findsOneWidget);
     });
 
     testWidgets('zonder afgeronde onboarding: duidelijke melding, geen crash', (tester) async {
-      await pumpProfile(tester, {'email': 'test@example.com', 'goals': [], 'preferences': null});
+      await pumpProfile(tester, {'email': 'test@example.com', 'goals': [], 'preferences': null}, motivation: null);
 
       expect(find.text('Nog geen doel gekozen'), findsOneWidget);
       expect(find.text('Je hebt de onboarding nog niet afgerond.'), findsOneWidget);
+      // Motivation geeft dan 404: geen cijferkaart, maar wel het plan.
+      expect(find.text('Jouw cijfers'), findsNothing);
+      expect(find.text('Free'), findsOneWidget);
     });
 
     testWidgets('het tandwiel opent het profiel-scherm', (tester) async {

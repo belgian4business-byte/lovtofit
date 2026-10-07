@@ -17,6 +17,13 @@ interface FeatureSnapshot {
 export interface FeatureAccessReport {
   plan: SubscriptionPlan;
   features: Record<FeatureKey, boolean>;
+  /**
+   * Fase 10, stap 3 (profiel-scherm): het abonnement waar Premium nú uit
+   * komt — `TRIAL` met einddatum, `ACTIVE` (`expiresAt` null = lopend) of
+   * `CANCELLED` (toegang tot `expiresAt`). `null` bij FREE. Alleen
+   * informatie voor de UI; het plan blijft door deze service bepaald.
+   */
+  subscription: { status: SubscriptionStatus; expiresAt: Date | null } | null;
 }
 
 const FEATURE_SELECT = {
@@ -58,10 +65,12 @@ export class FeatureAccessService {
    * (v2.19.8), wat de app ook beweert.
    */
   async getFeatureAccess(userId: string, now: Date = new Date()): Promise<FeatureAccessReport> {
-    const [plan, rows] = await Promise.all([
-      this.getEffectivePlan(userId, now),
+    const [subscription, rows] = await Promise.all([
+      this.latestSubscription(userId),
       this.prisma.feature.findMany({ select: { featureKey: true, ...FEATURE_SELECT } }),
     ]);
+    const isPremium = subscription !== null && hasPremiumAccess(subscription, now);
+    const plan = isPremium ? SubscriptionPlan.PREMIUM : SubscriptionPlan.FREE;
     const byKey = new Map(rows.map((row) => [row.featureKey, row]));
 
     // Altijd elke bekende sleutel in het antwoord (ook als hij niet geseed
@@ -73,20 +82,30 @@ export class FeatureAccessService {
       }),
     ) as Record<FeatureKey, boolean>;
 
-    return { plan, features };
+    return {
+      plan,
+      features,
+      subscription: isPremium
+        ? { status: subscription.status, expiresAt: subscription.expiresAt }
+        : null,
+    };
   }
 
   /** Het plan dat nú geldt, afgeleid uit de meest recente abonnement-rij. */
   async getEffectivePlan(userId: string, now: Date = new Date()): Promise<SubscriptionPlan> {
-    const subscription = await this.prisma.subscription.findFirst({
-      where: { userId },
-      orderBy: { startedAt: 'desc' },
-      select: { plan: true, status: true, expiresAt: true },
-    });
+    const subscription = await this.latestSubscription(userId);
 
     return subscription && hasPremiumAccess(subscription, now)
       ? SubscriptionPlan.PREMIUM
       : SubscriptionPlan.FREE;
+  }
+
+  private latestSubscription(userId: string): Promise<SubscriptionSnapshot | null> {
+    return this.prisma.subscription.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: { plan: true, status: true, expiresAt: true },
+    });
   }
 }
 
