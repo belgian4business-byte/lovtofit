@@ -28,12 +28,20 @@ async function main() {
       });
 
       await tx.templateSlot.deleteMany({ where: { templateId: saved.id } });
+      const blocks = [
+        ['WARMUP', template.warmup],
+        ['MAIN', template.slots],
+        ['COOLDOWN', template.cooldown],
+      ] as const;
       await tx.templateSlot.createMany({
-        data: template.slots.map((movementPattern, index) => ({
-          templateId: saved.id,
-          order: index,
-          movementPattern,
-        })),
+        data: blocks.flatMap(([block, patterns]) =>
+          patterns.map((movementPattern, index) => ({
+            templateId: saved.id,
+            block,
+            order: index,
+            movementPattern,
+          })),
+        ),
       });
     });
   }

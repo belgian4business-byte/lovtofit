@@ -184,14 +184,24 @@ model WorkoutTemplate {
   @@map("workout_templates")
 }
 
+// Fase 12: een training = warming-up → hoofddeel → cooldown. Elk blok heeft
+// zijn eigen volgorde (order begint per blok bij 0), zodat de krachtslots
+// van het hoofddeel hun bestaande nummers houden.
+enum WorkoutBlock {
+  WARMUP
+  MAIN
+  COOLDOWN
+}
+
 model TemplateSlot {
   id              String          @id @default(uuid())
   templateId      String
   template        WorkoutTemplate @relation(fields: [templateId], references: [id])
+  block           WorkoutBlock    @default(MAIN)
   order           Int
   movementPattern MovementPattern
 
-  @@unique([templateId, order])
+  @@unique([templateId, block, order])
   @@map("template_slots")
 }
 

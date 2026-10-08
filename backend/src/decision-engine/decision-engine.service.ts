@@ -416,8 +416,10 @@ export class DecisionEngineService {
       throw new NotFoundException('Onboarding nog niet afgerond');
     }
 
+    // Fase 12, stap 1: alleen het hoofddeel. Warming-up en cooldown krijgen
+    // in stap 2 hun eigen oefeningkeuze.
     const templates = await this.prisma.workoutTemplate.findMany({
-      include: { slots: { orderBy: { order: 'asc' } } },
+      include: { slots: { where: { block: 'MAIN' }, orderBy: { order: 'asc' } } },
     });
     if (templates.length === 0) {
       throw new NotFoundException('Geen trainingstemplates beschikbaar');
