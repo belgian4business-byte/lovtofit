@@ -13,6 +13,7 @@ import 'package:lovtofit_app/main_shell.dart';
 import 'package:lovtofit_app/nutrition_screen.dart';
 import 'package:lovtofit_app/onboarding_flow.dart';
 import 'package:lovtofit_app/profile_edit_screen.dart';
+import 'package:lovtofit_app/profile_options.dart';
 import 'package:lovtofit_app/profile_screen.dart';
 import 'package:lovtofit_app/progress_screen.dart';
 import 'package:lovtofit_app/recipe_detail_screen.dart';
@@ -113,6 +114,30 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
       expect(find.text('Wat wil je bereiken?'), findsOneWidget);
+    });
+
+    testWidgets('locatie: Thuis, Fitness, Beide én Buiten (Fase 13), en Buiten is kiesbaar', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: OnboardingFlow(accessToken: 'test-token', email: 'test@example.com'),
+        ),
+      );
+      await tester.tap(find.text('Afvallen'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(AppGradientButton, 'Volgende'));
+      await tester.pumpAndSettle();
+
+      for (final label in ['🏠 Thuis', '🏋️ Fitness', '🔄 Beide', '🌳 Buiten']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      final nextButton = find.widgetWithText(AppGradientButton, 'Volgende');
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNull);
+
+      await tester.ensureVisible(find.text('🌳 Buiten'));
+      await tester.tap(find.text('🌳 Buiten'));
+      await tester.pump();
+      expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNotNull);
+      expect(onboardingLocationOptions['🌳 Buiten'], 'OUTDOOR');
     });
   });
 

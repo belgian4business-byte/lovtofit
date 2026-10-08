@@ -56,6 +56,13 @@ Set<String> toggleEquipment(Set<String> current, String value) {
   return next;
 }
 
-/// Alleen voor weergave: de backend kent ook `OUTDOOR` (zie CLAUDE.md,
-/// openstaand punt 2), al kan je het in de onboarding nog niet kiezen.
+/// Locaties buiten `locationOptions`: `OUTDOOR` (Buiten). Het profiel toont
+/// en houdt die alleen voor wie het al heeft (CLAUDE.md, openstaand punt 2).
 const extraLocationLabels = {'OUTDOOR': '🌳 Buiten'};
+
+/// Fase 13, stap 1: de onboarding biedt "Buiten" al aan. Het profiel volgt
+/// in stap 2 (dan gaat Buiten in `locationOptions` zelf).
+final onboardingLocationOptions = {
+  ...locationOptions,
+  for (final entry in extraLocationLabels.entries) entry.value: entry.key,
+};

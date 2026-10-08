@@ -1109,6 +1109,14 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
+## Huidige fase: FASE 13 — "Buiten" kiesbaar maken
+Doel: de locatie "Buiten" (OUTDOOR, bestaat al in de backend) toevoegen als keuze, zodat buiten-oefeningen (hardlopen-intervallen, sprints) ingepland kunnen worden. Lost open punt 2 op. Gratis. Eén stap per keer.
+Stappen:
+1. Onboarding: "Buiten" toevoegen als locatie-keuze (naast Thuis/Fitness/Beide), met het bestaande label "🌳 Buiten".
+2. Profiel aanpassen: "Buiten" ook daar kiesbaar maken (label bestaat al).
+3. Controleren dat de Decision Engine + Rule Guard een buiten-gebruiker een zinnige training geven (buiten-oefeningen worden gekozen, gym-materiaal uitgesloten) — en dat warming-up/cooldown ook buiten kloppen.
+4. Testen met een buiten-account.
+
 ## Openstaande punten (later oppakken)
 1. **Zware cardio wordt nog niet ingepland.** Sinds Fase 12 komen de 5
    mobiliteitsoefeningen en de lichte cardio (High Knees, Jumping Jacks)

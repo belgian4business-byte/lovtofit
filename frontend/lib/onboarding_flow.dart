@@ -191,7 +191,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 1:
         return _SingleChoiceStep(
           title: 'Waar train je meestal?',
-          options: locationOptions,
+          options: onboardingLocationOptions,
           selected: _location,
           onSelect: (value) => setState(() => _location = value),
         );
