@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildCard(context, 'Training', Icons.fitness_center, [
               _Field(
                 'Locatie',
-                labelFor(locationOptions, preferences['location'] as String, extra: extraLocationLabels),
+                labelFor(locationOptions, preferences['location'] as String),
               ),
               _Field(
                 'Apparatuur',

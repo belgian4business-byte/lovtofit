@@ -58,13 +58,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   /// Doelen die de gebruiker uitzet: die worden gepauzeerd, niet gewist.
   bool get _pausesAGoal => widget.initial.goals.any((goal) => !_goals.contains(goal));
 
-  /// `OUTDOOR` staat (nog) niet in de onboarding; wie het al heeft, houdt
-  /// het als keuze zodat opslaan het niet ongemerkt verandert.
-  Map<String, String> get _locationChoices => {
-        ...locationOptions,
-        for (final entry in extraLocationLabels.entries)
-          if (widget.initial.location == entry.key) entry.value: entry.key,
-      };
 
   Future<void> _save() async {
     setState(() {
@@ -135,7 +128,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 _Section(
                   title: 'Locatie',
                   children: [
-                    for (final entry in _locationChoices.entries)
+                    for (final entry in locationOptions.entries)
                       _ChoiceChip(
                         label: entry.key,
                         selected: _location == entry.value,

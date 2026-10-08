@@ -10,7 +10,9 @@ const goalOptions = {
   'Fit worden': 'GET_FIT',
 };
 
-const locationOptions = {'🏠 Thuis': 'HOME', '🏋️ Fitness': 'GYM', '🔄 Beide': 'BOTH'};
+// Buiten (OUTDOOR) sinds Fase 13: alleen bodyweight, geen gym-apparaten;
+// buitenoefeningen zoals hardlopen en sprints mogen.
+const locationOptions = {'🏠 Thuis': 'HOME', '🏋️ Fitness': 'GYM', '🔄 Beide': 'BOTH', '🌳 Buiten': 'OUTDOOR'};
 
 const equipmentOptions = {
   'Geen apparatuur': 'NONE',
@@ -38,13 +40,12 @@ const frequencyOptions = {
 const levelOptions = {'Beginner': 'BEGINNER', 'Gemiddeld': 'INTERMEDIATE', 'Gevorderd': 'ADVANCED'};
 
 /// Het label bij een API-waarde, of de waarde zelf als die (nog) niet in de
-/// keuzes staat — bv. locatie `OUTDOOR`, die de backend kent maar de
-/// onboarding nog niet aanbiedt.
-String labelFor<T>(Map<String, T> options, T value, {Map<T, String> extra = const {}}) {
+/// keuzes staat (bv. een nieuwe waarde die de backend al kent).
+String labelFor<T>(Map<String, T> options, T value) {
   for (final entry in options.entries) {
     if (entry.value == value) return entry.key;
   }
-  return extra[value] ?? '$value';
+  return '$value';
 }
 
 /// "Geen apparatuur" sluit de rest uit (en omgekeerd). Geeft de nieuwe set
@@ -56,13 +57,3 @@ Set<String> toggleEquipment(Set<String> current, String value) {
   return next;
 }
 
-/// Locaties buiten `locationOptions`: `OUTDOOR` (Buiten). Het profiel toont
-/// en houdt die alleen voor wie het al heeft (CLAUDE.md, openstaand punt 2).
-const extraLocationLabels = {'OUTDOOR': '🌳 Buiten'};
-
-/// Fase 13, stap 1: de onboarding biedt "Buiten" al aan. Het profiel volgt
-/// in stap 2 (dan gaat Buiten in `locationOptions` zelf).
-final onboardingLocationOptions = {
-  ...locationOptions,
-  for (final entry in extraLocationLabels.entries) entry.value: entry.key,
-};

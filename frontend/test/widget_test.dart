@@ -137,7 +137,7 @@ void main() {
       await tester.tap(find.text('🌳 Buiten'));
       await tester.pump();
       expect(tester.widget<AppGradientButton>(nextButton).onPressed, isNotNull);
-      expect(onboardingLocationOptions['🌳 Buiten'], 'OUTDOOR');
+      expect(locationOptions['🌳 Buiten'], 'OUTDOOR');
     });
   });
 
@@ -978,7 +978,7 @@ void main() {
       expect(find.text('Profiel aanpassen'), findsOneWidget);
     });
 
-    testWidgets('locatie Buiten (nog niet in de onboarding) krijgt toch een label', (tester) async {
+    testWidgets('locatie Buiten toont het label 🌳 Buiten', (tester) async {
       await pumpProfile(tester, {
         'email': 'test@example.com',
         'goals': ['GET_FIT'],
@@ -1203,16 +1203,45 @@ void main() {
       expect(posted.single['equipment'], ['NONE']);
     });
 
-    testWidgets('locatie Buiten blijft kiesbaar voor wie het al heeft', (tester) async {
-      await pumpEdit(tester, [], choices: const ProfileChoices(
-        goals: {'GET_FIT'},
-        location: 'OUTDOOR',
-        equipment: {'NONE'},
-        sessionDuration: 'MIN_15',
-        weeklyFrequency: 2,
-        level: 'ADVANCED',
-      ));
-      expect(find.text('🌳 Buiten'), findsOneWidget);
+    testWidgets('locatie: Buiten is kiesbaar (Fase 13) en wordt als OUTDOOR opgeslagen', (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response('{}', 201);
+      });
+      await http.runWithClient(() async {
+        await pumpEdit(tester, posted);
+        for (final label in ['🏠 Thuis', '🏋️ Fitness', '🔄 Beide', '🌳 Buiten']) {
+          await scrollTo(tester, label);
+          expect(find.text(label), findsOneWidget);
+        }
+        await tester.tap(find.text('🌳 Buiten'));
+        await tapSave(tester);
+      }, () => client);
+
+      expect(posted.single['location'], 'OUTDOOR');
+    });
+
+    testWidgets('wie al Buiten heeft, ziet het geselecteerd en houdt het bij opslaan', (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response('{}', 201);
+      });
+      await http.runWithClient(() async {
+        await pumpEdit(tester, posted, choices: const ProfileChoices(
+          goals: {'GET_FIT'},
+          location: 'OUTDOOR',
+          equipment: {'NONE'},
+          sessionDuration: 'MIN_15',
+          weeklyFrequency: 2,
+          level: 'ADVANCED',
+        ));
+        expect(find.text('🌳 Buiten'), findsOneWidget);
+        await tapSave(tester);
+      }, () => client);
+
+      expect(posted.single['location'], 'OUTDOOR');
     });
 
     testWidgets('opslaan mislukt: foutmelding, scherm blijft open', (tester) async {
