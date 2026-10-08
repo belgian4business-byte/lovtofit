@@ -266,10 +266,14 @@ export class RuleGuardService {
     }
   }
 
-  private gymEquipmentFor(preferences: Pick<TrainingPreferences, 'equipment'>): string[] {
+  private gymEquipmentFor(preferences: Pick<TrainingPreferences, 'equipment' | 'location'>): string[] {
     const gym: string[] = [];
     if (preferences.equipment.includes('DUMBBELLS')) gym.push('DUMBBELL');
-    if (preferences.equipment.includes('FULL_GYM')) gym.push('DUMBBELL', 'BARBELL', 'MACHINE_CABLE', 'TREADMILL');
+    // Buiten telt "volledige fitnessapparatuur" niet: de fitness gaat niet
+    // mee naar buiten (Fase 13). Eigen dumbbells wel.
+    if (preferences.equipment.includes('FULL_GYM') && preferences.location !== 'OUTDOOR') {
+      gym.push('DUMBBELL', 'BARBELL', 'MACHINE_CABLE', 'TREADMILL');
+    }
     return gym;
   }
 }

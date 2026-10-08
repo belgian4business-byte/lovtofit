@@ -637,6 +637,10 @@ export class DecisionEngineService {
   private allowedExerciseEquipment(userEquipment: Equipment[], location: TrainingLocation): ExerciseEquipment[] {
     const allowed = new Set<ExerciseEquipment>(['BODYWEIGHT']);
     for (const equipment of userEquipment) {
+      // Fase 13: buiten heb je de fitness niet bij je — "volledige
+      // fitnessapparatuur" levert daar niets op (ook geen dumbbells). Eigen
+      // dumbbells (DUMBBELLS) mogen wel mee naar buiten.
+      if (equipment === 'FULL_GYM' && location === 'OUTDOOR') continue;
       for (const mapped of EQUIPMENT_MAP[equipment]) {
         allowed.add(mapped);
       }

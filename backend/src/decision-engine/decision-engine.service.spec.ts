@@ -497,6 +497,18 @@ describe('DecisionEngineService', () => {
       expect(where.equipment.in).not.toContain('TREADMILL');
       expect(where.equipment.in).not.toContain('MACHINE_CABLE');
     });
+
+    it('buiten met "volledige gym": alleen bodyweight — de fitness gaat niet mee naar buiten (Fase 13)', async () => {
+      const where = await exerciseQueryFor('OUTDOOR', ['FULL_GYM']);
+
+      expect(where.equipment.in).toEqual(['BODYWEIGHT']);
+    });
+
+    it('buiten met eigen dumbbells: die mogen wel mee', async () => {
+      const where = await exerciseQueryFor('OUTDOOR', ['DUMBBELLS', 'FULL_GYM']);
+
+      expect(where.equipment.in).toEqual(['BODYWEIGHT', 'DUMBBELL']);
+    });
   });
 
   describe('warming-up en cooldown (Fase 12)', () => {

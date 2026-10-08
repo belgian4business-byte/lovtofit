@@ -1154,3 +1154,18 @@ Stappen:
    ("squat-training → enkel-/heupmobiliteit, upper body →
    schoudermobiliteit"); daar is de mobiliteitsbibliotheek (5 oefeningen)
    nu nog te klein voor.
+7. **Gevorderd krijgt soms een beginnersvariant (Fase 13).** Er zijn geen
+   ADVANCED-oefeningen; dan scoren alle kandidaten gelijk en beslist de
+   naam (alfabetisch). Zo krijgt een gevorderde (thuis of buiten, zonder
+   materiaal) Knee Push-up i.p.v. Push-up. Nodig: bij gelijke score de
+   zwaarste variant binnen het niveau verkiezen, of ADVANCED-oefeningen
+   toevoegen.
+8. **Inverted Row vraagt iets om aan te hangen (Fase 13).** De oefening is
+   BODYWEIGHT, dus de engine kiest haar overal, ook buiten (lage stang in
+   een park) en thuis (stevige tafel). Nog te bekijken of dit een eigen
+   materiaal-/locatievoorwaarde nodig heeft.
+9. **Warming-up/cooldown op de grond, ook buiten (Fase 13).** Cat-Cow en
+   Downward Dog doe je op handen en knieën; buiten (nat gras, straat) kan
+   dat onhandig zijn. Veilig, maar misschien niet ideaal: later bekijken
+   of buiten staande mobiliteit (Hip Circles, World's Greatest Stretch,
+   Standing Forward Fold) voorrang krijgt.

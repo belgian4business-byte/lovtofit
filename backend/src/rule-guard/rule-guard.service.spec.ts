@@ -107,6 +107,16 @@ describe('RuleGuardService', () => {
       expect(service.checkWorkout([sprints], outdoor).passed).toBe(true);
       expect(rg02(service.checkWorkout([withExercise({ equipment: 'MACHINE_CABLE' })], outdoor))).toHaveLength(1);
     });
+
+    it('RG01: buiten telt "volledige gym" niet — geen dumbbells uit de fitness (Fase 13)', () => {
+      const dumbbellRow = withExercise({ name: 'Dumbbell Row', equipment: 'DUMBBELL' });
+
+      const outdoorGym = service.checkWorkout([dumbbellRow], context({ location: 'OUTDOOR' as never, equipment: ['FULL_GYM'] as never }));
+      expect(outdoorGym.violations.some((v) => v.startsWith('RG01'))).toBe(true);
+
+      const ownDumbbells = service.checkWorkout([dumbbellRow], context({ location: 'OUTDOOR' as never, equipment: ['DUMBBELLS'] as never }));
+      expect(ownDumbbells.passed).toBe(true);
+    });
   });
 
   it('RG03: blokkeert een oefening boven het toegestane niveau', () => {
