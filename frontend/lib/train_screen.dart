@@ -74,6 +74,8 @@ class _TrainScreenState extends State<TrainScreen> {
   String? _templateId;
   String? _templateName;
   List<WorkoutExercise> _exercises = [];
+  List<WorkoutBlockItem> _warmup = [];
+  List<WorkoutBlockItem> _cooldown = [];
 
   bool _isStartingTraining = false;
   bool _isLoadingQuickSession = false;
@@ -110,6 +112,8 @@ class _TrainScreenState extends State<TrainScreen> {
           _templateId = body['templateId'] as String;
           _templateName = body['templateName'] as String;
           _exercises = _parseExercises(body['slots'] as List);
+          _warmup = parseBlockItems(body['warmup'] as List?);
+          _cooldown = parseBlockItems(body['cooldown'] as List?);
         });
         return;
       }
@@ -226,7 +230,13 @@ class _TrainScreenState extends State<TrainScreen> {
     final level = choice.level;
     if (level == null) {
       // Overslaan: de training die al klaarstaat, ongewijzigd.
-      _openWorkout(templateId: _templateId!, exercises: _exercises, restSeconds: 45);
+      _openWorkout(
+        templateId: _templateId!,
+        exercises: _exercises,
+        restSeconds: 45,
+        warmup: _warmup,
+        cooldown: _cooldown,
+      );
       return;
     }
 
@@ -248,6 +258,8 @@ class _TrainScreenState extends State<TrainScreen> {
           templateId: body['templateId'] as String,
           exercises: _parseExercises(body['slots'] as List),
           restSeconds: body['restSeconds'] as int,
+          warmup: parseBlockItems(body['warmup'] as List?),
+          cooldown: parseBlockItems(body['cooldown'] as List?),
           energyLevel: level,
           energyAdjusted: body['energyAdjusted'] as bool? ?? false,
         );
@@ -265,6 +277,8 @@ class _TrainScreenState extends State<TrainScreen> {
     required String templateId,
     required List<WorkoutExercise> exercises,
     required int restSeconds,
+    List<WorkoutBlockItem> warmup = const [],
+    List<WorkoutBlockItem> cooldown = const [],
     String? energyLevel,
     bool energyAdjusted = false,
   }) {
@@ -274,6 +288,8 @@ class _TrainScreenState extends State<TrainScreen> {
           accessToken: widget.accessToken,
           templateId: templateId,
           exercises: exercises,
+          warmup: warmup,
+          cooldown: cooldown,
           restSeconds: restSeconds,
           energyLevel: energyLevel,
           energyAdjusted: energyAdjusted,
@@ -283,17 +299,33 @@ class _TrainScreenState extends State<TrainScreen> {
   }
 
   // Kleine foto (of placeholder) + naam, zodat je al ziet wat er komt.
-  Widget _buildExerciseRow(WorkoutExercise exercise, String label) {
+  Widget _buildExerciseRow(String? imageKey, String label) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          ExercisePhoto(imageKey: exercise.imageKey, width: 48, height: 32, borderRadius: 6, compact: true),
+          ExercisePhoto(imageKey: imageKey, width: 48, height: 32, borderRadius: 6, compact: true),
           const SizedBox(width: 12),
           Expanded(child: Text(label)),
         ],
       ),
     );
+  }
+
+  /// Fase 12: warming-up of cooldown op de kaart — klein kopje met de
+  /// duur, daaronder de oefeningen. Leeg blok = niets tonen.
+  List<Widget> _buildBlockSection(String title, List<WorkoutBlockItem> items) {
+    if (items.isEmpty) return const [];
+    return [
+      const SizedBox(height: 8),
+      Text(
+        '$title · ${blockMinutes(items)} min',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.highlight, letterSpacing: 0.8),
+      ),
+      const SizedBox(height: 4),
+      for (final item in items) _buildExerciseRow(item.imageKey, item.name),
+      const SizedBox(height: 8),
+    ];
   }
 
   @override
@@ -363,7 +395,14 @@ class _TrainScreenState extends State<TrainScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
-                for (final exercise in _exercises) _buildExerciseRow(exercise, exercise.name),
+                ..._buildBlockSection('WARMING-UP', _warmup),
+                if (_warmup.isNotEmpty || _cooldown.isNotEmpty)
+                  Text(
+                    'TRAINING',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.highlight, letterSpacing: 0.8),
+                  ),
+                for (final exercise in _exercises) _buildExerciseRow(exercise.imageKey, exercise.name),
+                ..._buildBlockSection('COOLDOWN', _cooldown),
               ],
             ),
           ),
@@ -425,7 +464,7 @@ class _TrainScreenState extends State<TrainScreen> {
                 Text(quickSession.coachMessage, style: textTheme.bodyMedium),
                 const SizedBox(height: 16),
                 for (final exercise in quickSession.exercises)
-                  _buildExerciseRow(exercise, '${exercise.name}  ·  ${exercise.targetSets}×${exercise.targetReps}'),
+                  _buildExerciseRow(exercise.imageKey, '${exercise.name}  ·  ${exercise.targetSets}×${exercise.targetReps}'),
               ],
             ),
           ),

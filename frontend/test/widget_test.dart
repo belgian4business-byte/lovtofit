@@ -504,6 +504,142 @@ void main() {
       // geen hangende timer overblijft na de test.
       await tester.pump(const Duration(seconds: 6));
     });
+
+    group('warming-up en cooldown (Fase 12)', () {
+      const warmup = [
+        WorkoutBlockItem(id: 'w1', name: 'High Knees', durationSeconds: 90, imageKey: 'high_knees'),
+        WorkoutBlockItem(id: 'w2', name: 'Cat-Cow', durationSeconds: 90, imageKey: 'cat_cow'),
+      ];
+      const cooldown = [
+        WorkoutBlockItem(id: 'c1', name: 'Downward Dog', durationSeconds: 60),
+        WorkoutBlockItem(id: 'c2', name: 'Standing Forward Fold', durationSeconds: 60),
+      ];
+      const oneExercise = [
+        WorkoutExercise(id: 'x', name: 'Bodyweight Squat', equipment: 'BODYWEIGHT', targetSets: 1, targetReps: 8),
+      ];
+
+      Widget build() => const MaterialApp(
+        home: WorkoutScreen(
+          accessToken: 'test-token',
+          templateId: 'template-1',
+          exercises: oneExercise,
+          warmup: warmup,
+          cooldown: cooldown,
+        ),
+      );
+
+      Future<void> finishMainPart(WidgetTester tester) async {
+        await tester.tap(find.widgetWithText(AppGradientButton, 'SET KLAAR'));
+        await tester.pump();
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Rust overslaan'));
+        await tester.pump();
+        await tester.ensureVisible(find.text('🙂 Goed'));
+        await tester.tap(find.text('🙂 Goed'));
+        await tester.pump();
+        await tester.ensureVisible(find.text('Nee'));
+        await tester.tap(find.text('Nee'));
+        await tester.pump();
+        final next = find.widgetWithText(AppGradientButton, 'Naar de cooldown →');
+        await tester.ensureVisible(next);
+        await tester.tap(next);
+        await tester.pump();
+      }
+
+      testWidgets('start met de warming-up: timer per oefening, "Klaar →" gaat door', (tester) async {
+        await tester.pumpWidget(build());
+
+        expect(find.text('WARMING-UP · 1 van 2'), findsOneWidget);
+        expect(find.text('High Knees'), findsOneWidget);
+        expect(find.text('01:30'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(AppGradientButton, 'Klaar →'));
+        await tester.pump();
+        expect(find.text('WARMING-UP · 2 van 2'), findsOneWidget);
+        expect(find.text('Cat-Cow'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(AppGradientButton, 'Klaar →'));
+        await tester.pump();
+        expect(find.text('Oefening 1 van 1'), findsOneWidget);
+      });
+
+      testWidgets('de timer telt af en gaat bij 0 vanzelf naar de volgende oefening', (tester) async {
+        await tester.pumpWidget(build());
+
+        await tester.pump(const Duration(seconds: 30));
+        expect(find.text('01:00'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 60));
+        expect(find.text('Cat-Cow'), findsOneWidget);
+        expect(find.text('01:30'), findsOneWidget);
+
+        await tester.tap(find.text('Overslaan'));
+        await tester.pump();
+      });
+
+      testWidgets('"Overslaan" slaat de hele warming-up over, meteen naar het hoofddeel', (tester) async {
+        await tester.pumpWidget(build());
+
+        await tester.tap(find.text('Overslaan'));
+        await tester.pump();
+
+        expect(find.text('Oefening 1 van 1'), findsOneWidget);
+        expect(find.text('SET KLAAR'), findsOneWidget);
+      });
+
+      testWidgets('na het hoofddeel de cooldown; "Overslaan" rondt de training af', (tester) async {
+        await tester.pumpWidget(build());
+        await tester.tap(find.text('Overslaan'));
+        await tester.pump();
+
+        await finishMainPart(tester);
+
+        expect(find.text('COOLDOWN · 1 van 2'), findsOneWidget);
+        expect(find.text('Downward Dog'), findsOneWidget);
+        expect(find.text('01:00'), findsOneWidget);
+
+        await tester.tap(find.text('Overslaan'));
+        await tester.pump();
+        expect(find.text('Training voltooid! 💪'), findsOneWidget);
+        expect(find.text('1 sets gelogd'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 6));
+      });
+
+      testWidgets('na de laatste cooldown-oefening: training voltooid', (tester) async {
+        await tester.pumpWidget(build());
+        await tester.tap(find.text('Overslaan'));
+        await tester.pump();
+        await finishMainPart(tester);
+
+        await tester.tap(find.widgetWithText(AppGradientButton, 'Klaar →'));
+        await tester.pump();
+        expect(find.text('Standing Forward Fold'), findsOneWidget);
+        await tester.tap(find.widgetWithText(AppGradientButton, 'Klaar →'));
+        await tester.pump();
+
+        expect(find.text('Training voltooid! 💪'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 6));
+      });
+
+      testWidgets('"Klaar →" en "Overslaan" in beeld zonder scrollen op een klein scherm', (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        await tester.pumpWidget(build());
+
+        expect(tester.getRect(find.text('Overslaan')).bottom, lessThanOrEqualTo(640));
+      });
+
+      test('parseBlockItems en blockMinutes', () {
+        final items = parseBlockItems([
+          {'order': 0, 'movementPattern': 'CARDIO', 'durationSeconds': 90, 'exercise': {'id': 'a', 'name': 'High Knees', 'imageKey': 'high_knees'}},
+          {'order': 1, 'movementPattern': 'MOBILITY', 'durationSeconds': 90, 'exercise': {'id': 'b', 'name': 'Cat-Cow', 'imageKey': null}},
+        ]);
+
+        expect(items.map((i) => i.name), ['High Knees', 'Cat-Cow']);
+        expect(items[1].imageKey, isNull);
+        expect(blockMinutes(items), 3);
+        expect(parseBlockItems(null), isEmpty);
+        expect(blockMinutes(const [WorkoutBlockItem(id: 'x', name: 'x', durationSeconds: 60)]), 1);
+      });
+    });
   });
 
   group('ProgressScreen', () {

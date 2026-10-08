@@ -9,7 +9,7 @@ import 'theme/app_theme.dart';
 import 'widgets/exercise_photo.dart';
 import 'workout_models.dart';
 
-enum _Phase { logging, resting, exerciseComplete, workoutComplete }
+enum _Phase { warmup, logging, resting, exerciseComplete, cooldown, workoutComplete }
 
 class ProgressionOutcome {
   const ProgressionOutcome({
@@ -64,12 +64,20 @@ const _difficultyOptions = {
 /// set van een oefening één tik naar de volgende. Zodra de training is
 /// afgerond wordt de hele sessie in één keer opgeslagen via
 /// POST /workouts/sessions.
+///
+/// Fase 12: vóór het hoofddeel de warming-up, erna de cooldown. Per oefening
+/// een aftellende timer; "Klaar →" gaat door naar de volgende, "Overslaan"
+/// slaat het hele blok over. Deze oefeningen worden niet gelogd. De sessie
+/// wordt al opgeslagen zodra het hoofddeel klaar is, zodat een overgeslagen
+/// of afgebroken cooldown niets kost.
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
     super.key,
     required this.accessToken,
     required this.templateId,
     required this.exercises,
+    this.warmup = const [],
+    this.cooldown = const [],
     this.restSeconds = 45,
     this.energyLevel,
     this.energyAdjusted = false,
@@ -78,6 +86,8 @@ class WorkoutScreen extends StatefulWidget {
   final String accessToken;
   final String templateId;
   final List<WorkoutExercise> exercises;
+  final List<WorkoutBlockItem> warmup;
+  final List<WorkoutBlockItem> cooldown;
 
   /// Rust na elke set. Een Quick Session gebruikt kortere rust (30 s, komt
   /// mee van de backend — "beperkte rust", blueprint v0.7.10).
@@ -117,18 +127,62 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   final List<LoggedSet> _log = [];
   final List<ExerciseFeedbackEntry> _feedbackLog = [];
 
+  int _blockIndex = 0;
+  int _remainingBlockSeconds = 0;
+
   WorkoutExercise get _exercise => widget.exercises[_exerciseIndex];
+
+  List<WorkoutBlockItem> get _blockItems => _phase == _Phase.warmup ? widget.warmup : widget.cooldown;
 
   @override
   void initState() {
     super.initState();
     _resetSetDefaults();
+    if (widget.warmup.isNotEmpty) {
+      _phase = _Phase.warmup;
+      _startBlockItem();
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  /// Start de timer van de huidige warming-up-/cooldown-oefening; bij 0
+  /// gaat het vanzelf door naar de volgende.
+  void _startBlockItem() {
+    _remainingBlockSeconds = _blockItems[_blockIndex].durationSeconds;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingBlockSeconds <= 1) {
+        _nextBlockItem();
+        return;
+      }
+      setState(() => _remainingBlockSeconds--);
+    });
+  }
+
+  void _nextBlockItem() {
+    if (_blockIndex < _blockItems.length - 1) {
+      setState(() {
+        _blockIndex++;
+        _startBlockItem();
+      });
+    } else {
+      _finishBlock();
+    }
+  }
+
+  /// Einde van het blok, of "Overslaan": warming-up → hoofddeel,
+  /// cooldown → training voltooid.
+  void _finishBlock() {
+    _timer?.cancel();
+    setState(() {
+      _blockIndex = 0;
+      _phase = _phase == _Phase.warmup ? _Phase.logging : _Phase.workoutComplete;
+    });
   }
 
   void _resetSetDefaults() {
@@ -201,7 +255,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _resetSetDefaults();
       });
     } else {
-      setState(() => _phase = _Phase.workoutComplete);
+      // Hoofddeel klaar: meteen opslaan, ook als er nog een cooldown volgt.
+      if (widget.cooldown.isNotEmpty) {
+        setState(() {
+          _phase = _Phase.cooldown;
+          _blockIndex = 0;
+          _startBlockItem();
+        });
+      } else {
+        setState(() => _phase = _Phase.workoutComplete);
+      }
       _saveSession();
     }
   }
@@ -299,6 +362,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Widget _buildPhase(BuildContext context) {
     switch (_phase) {
+      case _Phase.warmup:
+        return _buildBlockItem(context, 'WARMING-UP');
+      case _Phase.cooldown:
+        return _buildBlockItem(context, 'COOLDOWN');
       case _Phase.logging:
         return _buildLogging(context);
       case _Phase.resting:
@@ -379,6 +446,46 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ],
         const SizedBox(height: 24),
         AppGradientButton(onPressed: _completeSet, child: const Text('SET KLAAR')),
+      ],
+    );
+  }
+
+  Widget _buildBlockItem(BuildContext context, String blockLabel) {
+    final item = _blockItems[_blockIndex];
+    final minutes = (_remainingBlockSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_remainingBlockSeconds % 60).toString().padLeft(2, '0');
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final frame = exercisePhotoFrameSize(
+              availableWidth: constraints.maxWidth,
+              screenHeight: MediaQuery.sizeOf(context).height,
+            );
+            return Center(
+              child: SizedBox.fromSize(size: frame, child: ExercisePhoto(imageKey: item.imageKey)),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        // Duidelijk anders dan het hoofddeel: blokkleur i.p.v. "Oefening x van y".
+        Text(
+          '$blockLabel · ${_blockIndex + 1} van ${_blockItems.length}',
+          style: textTheme.labelLarge?.copyWith(color: AppColors.highlight, letterSpacing: 1.1),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(item.name, style: textTheme.headlineSmall, textAlign: TextAlign.center),
+        const SizedBox(height: 16),
+        Text('$minutes:$seconds', style: textTheme.displayMedium, textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        AppGradientButton(onPressed: _nextBlockItem, child: const Text('Klaar →')),
+        const SizedBox(height: 8),
+        TextButton(onPressed: _finishBlock, child: const Text('Overslaan')),
       ],
     );
   }
@@ -486,7 +593,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         const SizedBox(height: 24),
         AppGradientButton(
           onPressed: canContinue ? _submitFeedbackAndContinue : null,
-          child: Text(isLastExercise ? 'Training afronden' : 'Volgende oefening →'),
+          child: Text(
+            !isLastExercise
+                ? 'Volgende oefening →'
+                : widget.cooldown.isNotEmpty
+                ? 'Naar de cooldown →'
+                : 'Training afronden',
+          ),
         ),
       ],
     );
