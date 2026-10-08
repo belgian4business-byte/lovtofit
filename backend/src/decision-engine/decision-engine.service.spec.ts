@@ -46,8 +46,8 @@ describe('DecisionEngineService', () => {
     name: 'Beginner Full Body',
     level: 'BEGINNER',
     slots: [
-      { order: 0, movementPattern: 'SQUAT' },
-      { order: 1, movementPattern: 'PUSH' },
+      { block: 'MAIN', order: 0, movementPattern: 'SQUAT' },
+      { block: 'MAIN', order: 1, movementPattern: 'PUSH' },
     ],
   };
 
@@ -369,6 +369,7 @@ describe('DecisionEngineService', () => {
     const fullTemplate = {
       ...template,
       slots: ['SQUAT', 'PUSH', 'PULL', 'HINGE', 'CORE_STABILITY'].map((movementPattern, order) => ({
+        block: 'MAIN',
         order,
         movementPattern,
       })),
@@ -495,6 +496,126 @@ describe('DecisionEngineService', () => {
       expect(where.location.in).toEqual(['ANYWHERE', 'OUTDOOR']);
       expect(where.equipment.in).not.toContain('TREADMILL');
       expect(where.equipment.in).not.toContain('MACHINE_CABLE');
+    });
+  });
+
+  describe('warming-up en cooldown (Fase 12)', () => {
+    const blockTemplate = {
+      ...template,
+      slots: [
+        { block: 'WARMUP', order: 0, movementPattern: 'CARDIO' },
+        { block: 'WARMUP', order: 1, movementPattern: 'MOBILITY' },
+        { block: 'MAIN', order: 0, movementPattern: 'SQUAT' },
+        { block: 'MAIN', order: 1, movementPattern: 'PUSH' },
+        { block: 'COOLDOWN', order: 0, movementPattern: 'MOBILITY' },
+        { block: 'COOLDOWN', order: 1, movementPattern: 'MOBILITY' },
+      ],
+    };
+
+    // Mini-bibliotheek; de mock past dezelfde filters toe als de database.
+    const library = [
+      exercise({ id: 'squat', name: 'Bodyweight Squat', movementPattern: 'SQUAT', blocks: 'MAIN' }),
+      exercise({ id: 'push', name: 'Knee Push-up', movementPattern: 'PUSH', blocks: 'MAIN' }),
+      exercise({ id: 'burpees', name: 'Burpees', movementPattern: 'CARDIO', level: 'INTERMEDIATE', blocks: 'MAIN' }),
+      exercise({ id: 'treadmill', name: 'Treadmill Intervals', movementPattern: 'CARDIO', equipment: 'TREADMILL', blocks: 'MAIN' }),
+      exercise({ id: 'high-knees', name: 'High Knees', movementPattern: 'CARDIO', blocks: 'MAIN,WARMUP' }),
+      exercise({ id: 'jumping-jacks', name: 'Jumping Jacks', movementPattern: 'CARDIO', blocks: 'MAIN,WARMUP' }),
+      exercise({ id: 'cat-cow', name: 'Cat-Cow', movementPattern: 'MOBILITY', blocks: 'WARMUP,COOLDOWN' }),
+      exercise({ id: 'hip-circles', name: 'Hip Circles', movementPattern: 'MOBILITY', blocks: 'WARMUP' }),
+      exercise({ id: 'downward-dog', name: 'Downward Dog', movementPattern: 'MOBILITY', blocks: 'COOLDOWN' }),
+      exercise({ id: 'forward-fold', name: 'Standing Forward Fold', movementPattern: 'MOBILITY', blocks: 'COOLDOWN' }),
+    ];
+
+    type Where = {
+      movementPattern: string;
+      equipment: { in: string[] };
+      level: { in: string[] };
+      suitableBlocks: { has: string };
+    };
+
+    beforeEach(() => {
+      prisma.workoutTemplate.findMany.mockResolvedValue([blockTemplate]);
+      prisma.trainingPreferences.findUnique.mockResolvedValue({
+        level: 'BEGINNER',
+        equipment: ['FULL_GYM'],
+        location: 'GYM',
+        sessionDuration: 'MIN_60_PLUS',
+      });
+      prisma.exercise.findMany.mockImplementation(({ where }: { where: Where }) =>
+        Promise.resolve(
+          library
+            .filter(
+              (e) =>
+                e.movementPattern === where.movementPattern &&
+                where.equipment.in.includes(e.equipment) &&
+                where.level.in.includes(e.level) &&
+                e.blocks.split(',').includes(where.suitableBlocks.has),
+            )
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        ),
+      );
+    });
+
+    it('warming-up: lichte cardio + dynamische mobiliteit, 2 × 90 s (3 min)', async () => {
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.warmup.map((i) => i.exercise.id)).toEqual(['high-knees', 'cat-cow']);
+      expect(result.warmup.map((i) => i.durationSeconds)).toEqual([90, 90]);
+      expect(result.warmup.map((i) => i.order)).toEqual([0, 1]);
+    });
+
+    it('cooldown: 2 rustige stretches, 2 × 60 s (2 min), nooit dezelfde als in de warming-up', async () => {
+      const result = await service.getTodaysWorkout('user-1');
+
+      // Cat-Cow mag ook in de cooldown, maar zit al in de warming-up (RG10).
+      expect(result.cooldown.map((i) => i.exercise.id)).toEqual(['downward-dog', 'forward-fold']);
+      expect(result.cooldown.map((i) => i.durationSeconds)).toEqual([60, 60]);
+    });
+
+    it('het hoofddeel blijft ongewijzigd en vraagt alleen MAIN-oefeningen', async () => {
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.slots.map((s) => s.exercise.id)).toEqual(['squat', 'push']);
+      const mainQueries = prisma.exercise.findMany.mock.calls
+        .map(([args]) => args.where as Where)
+        .filter((where) => ['SQUAT', 'PUSH'].includes(where.movementPattern));
+      expect(mainQueries.every((where) => where.suitableBlocks.has === 'MAIN')).toBe(true);
+    });
+
+    it('nooit burpees of een loopband-interval in de warming-up, ook niet in de fitness', async () => {
+      const result = await service.getTodaysWorkout('user-1');
+
+      expect(result.warmup.map((i) => i.exercise.id)).not.toContain('burpees');
+      expect(result.warmup.map((i) => i.exercise.id)).not.toContain('treadmill');
+    });
+
+    it('slaat een oefening na een pijnmelding over (geen terugval zoals in het hoofddeel)', async () => {
+      prisma.exerciseProgression.findMany.mockResolvedValue([
+        { exerciseId: 'high-knees', decision: 'REPLACE' },
+        { exerciseId: 'jumping-jacks', decision: 'REPLACE' },
+      ]);
+
+      const result = await service.getTodaysWorkout('user-1');
+
+      // Geen veilige cardio over → die slot valt weg, de training gaat door.
+      expect(result.warmup.map((i) => i.exercise.id)).toEqual(['cat-cow']);
+      expect(result.warmup[0].order).toBe(0);
+      expect(result.slots).toHaveLength(2);
+    });
+
+    it('ook bij lage energie (Light Session) een warming-up en cooldown', async () => {
+      const result = await service.getTodaysWorkout('user-1', 'LOW');
+
+      expect(result.warmup).toHaveLength(2);
+      expect(result.cooldown).toHaveLength(2);
+    });
+
+    it('Quick Session: geen warming-up of cooldown (elke minuut telt)', async () => {
+      const result = (await service.getQuickSession('user-1', 10)) as QuickSession;
+
+      expect(result).not.toHaveProperty('warmup');
+      expect(result).not.toHaveProperty('cooldown');
+      expect(result.slots.map((s) => s.movementPattern)).toEqual(['SQUAT', 'PUSH']);
     });
   });
 });

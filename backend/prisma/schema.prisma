@@ -155,6 +155,10 @@ model Exercise {
   equipment       ExerciseEquipment
   level           ExperienceLevel
   location        ExerciseLocation  @default(ANYWHERE)
+  // Fase 12: in welke trainingsblokken deze oefening mag (zie WorkoutBlock).
+  // Lichte cardio en dynamische mobiliteit → WARMUP, rustig rekken →
+  // COOLDOWN. Krachtoefeningen blijven bij de standaard: alleen MAIN.
+  suitableBlocks  WorkoutBlock[]    @default([MAIN])
   // Sleutel van de oefening-foto in de app:
   // frontend/assets/exercises/lovtofit_<imageKey>_<man|vrouw|duo>.webp.
   // null = nog geen foto (de app toont een placeholder).

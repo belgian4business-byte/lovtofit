@@ -1093,3 +1093,14 @@ Open punt voor morgen: lengte van warming-up/cooldown (bv. 2-3 oefeningen elk), 
    engine er één kiezen en blokkeerde de Rule Guard daarna de hele
    workout). Nog te bevestigen of dit het gewenste gedrag is, en of de
    onboarding die combinatie nog moet toelaten.
+5. **Quick Session heeft geen warming-up of cooldown (Fase 12).** Bij
+   10-15 min telt elke minuut ("geen lange warming-up", blueprint v2.0
+   test 03), dus `getQuickSession` voegt ze bewust niet toe. Blueprint
+   v0.7.10 noemt wel een "korte voorbereiding": later bekijken of een
+   Quick Session één korte warming-upoefening krijgt.
+6. **Warming-up nog niet afgestemd op het hoofddeel (Fase 12).** De
+   warming-up/cooldown-oefeningen liggen vast op naam (binnen
+   `suitableBlocks`). Blueprint v0.5 §9 noemt specifieke voorbereiding
+   ("squat-training → enkel-/heupmobiliteit, upper body →
+   schoudermobiliteit"); daar is de mobiliteitsbibliotheek (5 oefeningen)
+   nu nog te klein voor.

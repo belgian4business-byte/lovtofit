@@ -16,6 +16,7 @@ import type {
   MovementPattern,
   ProgressionDecision,
   TrainingLocation,
+  WorkoutBlock,
 } from '../generated/prisma/enums.js';
 import { MotivationEngineService } from '../motivation-engine/motivation-engine.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -77,22 +78,41 @@ export function repsForProgressionDecision(decision: ProgressionDecision | undef
   return DEFAULT_TARGET_REPS;
 }
 
+export interface WorkoutExercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  equipment: string;
+  level: string;
+  location: string;
+  /** Foto-sleutel (lovtofit_<imageKey>_<variant>.webp); null = placeholder. */
+  imageKey: string | null;
+}
+
 export interface TodaysWorkoutSlot {
   order: number;
   movementPattern: MovementPattern;
   targetSets: number;
   targetReps: number;
-  exercise: {
-    id: string;
-    name: string;
-    muscleGroup: string;
-    equipment: string;
-    level: string;
-    location: string;
-    /** Foto-sleutel (lovtofit_<imageKey>_<variant>.webp); null = placeholder. */
-    imageKey: string | null;
-  };
+  exercise: WorkoutExercise;
 }
+
+/**
+ * Fase 12: één oefening uit de warming-up of cooldown. Op tijd, niet in
+ * sets × reps: deze oefeningen tellen niet mee voor progressie en hebben
+ * geen repsdoel (RG06 geldt alleen voor het hoofddeel).
+ */
+export interface WorkoutBlockItem {
+  order: number;
+  movementPattern: MovementPattern;
+  durationSeconds: number;
+  exercise: WorkoutExercise;
+}
+
+// Blueprint v0.5 §3: "Warming-up — 3 min … Cooldown — 2 min". Met 2
+// oefeningen per blok (keuze gebruiker, Fase 12) = 2 × 90 s en 2 × 60 s.
+export const WARMUP_SECONDS_PER_EXERCISE = 90;
+export const COOLDOWN_SECONDS_PER_EXERCISE = 60;
 
 export interface TodaysWorkout {
   templateId: string;
@@ -105,6 +125,10 @@ export interface TodaysWorkout {
 }
 
 export interface TodaysWorkoutWithEnergy extends TodaysWorkout {
+  /** Fase 12: vóór het hoofddeel. Kan leeg zijn als er niets geschikt is. */
+  warmup: WorkoutBlockItem[];
+  /** Fase 12: na het hoofddeel. Kan leeg zijn als er niets geschikt is. */
+  cooldown: WorkoutBlockItem[];
   /** Wat de gebruiker koos in de energie-check; null = overgeslagen. */
   energyLevel: EnergyLevel | null;
   /** true = Light Session (lage energie) — voor "Aangepast aan je energie vandaag". */
@@ -286,11 +310,18 @@ export class DecisionEngineService {
     const slots = isLowEnergy ? applyLightSession(selection.slots) : selection.slots;
     const restSeconds = isLowEnergy ? LIGHT_SESSION_REST_SECONDS : NORMAL_REST_SECONDS_FOR_RESPONSE;
 
+    // Warming-up en cooldown: ook bij lage energie (dan juist), nooit
+    // dezelfde oefening als elders in de training (RG10).
+    const usedExerciseIds = new Set(slots.map((slot) => slot.exercise.id));
+    const warmup = await this.selectBlockItems(userId, 'WARMUP', selection, usedExerciseIds);
+    const cooldown = await this.selectBlockItems(userId, 'COOLDOWN', selection, usedExerciseIds);
+
     const ruleGuardResult = this.ruleGuard.checkWorkout(slots, {
       preferences,
       recoveryByPattern,
       decisionByChosenExercise,
       restSeconds,
+      blockItems: [...warmup, ...cooldown],
     });
     this.assertRuleGuardPassed(ruleGuardResult);
 
@@ -305,7 +336,9 @@ export class DecisionEngineService {
     return {
       templateId: template.id,
       templateName: template.name,
+      warmup,
       slots,
+      cooldown,
       ruleGuardWarnings: ruleGuardResult.warnings,
       coachMessage,
       energyLevel: energyLevel ?? null,
@@ -326,6 +359,10 @@ export class DecisionEngineService {
    * normale progressie niet verstoren (v0.8.11). De Progression Engine
    * vergelijkt gemiddelden per set, dus minder sets telt niet als
    * achteruitgang.
+   *
+   * Geen warming-up/cooldown (Fase 12): bij 10-15 min telt elke minuut
+   * ("geen lange warming-up", blueprint v2.0 test 03). Een "korte
+   * voorbereiding" (v0.7.10) is een apart open punt.
    */
   async getQuickSession(userId: string, minutes: number): Promise<QuickSession | QuickSessionLocked> {
     // Premium eerst: voor een FREE-gebruiker wordt niets berekend. Wat al
@@ -416,10 +453,10 @@ export class DecisionEngineService {
       throw new NotFoundException('Onboarding nog niet afgerond');
     }
 
-    // Fase 12, stap 1: alleen het hoofddeel. Warming-up en cooldown krijgen
-    // in stap 2 hun eigen oefeningkeuze.
+    // Alle blokken; deze ladder vult alleen het hoofddeel (MAIN). Warming-up
+    // en cooldown: selectBlockItems() (Fase 12).
     const templates = await this.prisma.workoutTemplate.findMany({
-      include: { slots: { where: { block: 'MAIN' }, orderBy: { order: 'asc' } } },
+      include: { slots: { orderBy: { order: 'asc' } } },
     });
     if (templates.length === 0) {
       throw new NotFoundException('Geen trainingstemplates beschikbaar');
@@ -438,13 +475,14 @@ export class DecisionEngineService {
     const slots: TodaysWorkoutSlot[] = [];
     const decisionByChosenExercise = new Map<string, ProgressionDecision | undefined>();
     const patternsReplacedForPain = new Set<MovementPattern>();
-    for (const slot of template.slots) {
+    for (const slot of template.slots.filter((s) => s.block === 'MAIN')) {
       const candidates = await this.prisma.exercise.findMany({
         where: {
           movementPattern: slot.movementPattern,
           equipment: { in: allowedEquipment },
           level: { in: allowedLevels },
           location: { in: exerciseLocationsFor(preferences.location) },
+          suitableBlocks: { has: 'MAIN' },
         },
         orderBy: { name: 'asc' },
       });
@@ -509,19 +547,91 @@ export class DecisionEngineService {
         movementPattern: slot.movementPattern,
         targetSets: DEFAULT_TARGET_SETS,
         targetReps,
-        exercise: {
-          id: chosen.id,
-          name: chosen.name,
-          muscleGroup: chosen.muscleGroup,
-          equipment: chosen.equipment,
-          level: chosen.level,
-          location: chosen.location,
-          imageKey: chosen.imageKey ?? null,
-        },
+        exercise: this.toWorkoutExercise(chosen),
       });
     }
 
-    return { preferences, template, slots, recoveryByPattern, decisionByChosenExercise, patternsReplacedForPain };
+    return {
+      preferences,
+      template,
+      allowedEquipment,
+      allowedLevels,
+      slots,
+      recoveryByPattern,
+      decisionByChosenExercise,
+      patternsReplacedForPain,
+    };
+  }
+
+  /**
+   * Fase 12, stap 2: oefeningen voor de warming-up of cooldown (blueprint
+   * v0.5 §9: mobiliteit/herstel als warming-up en cooldown). Dezelfde harde
+   * veiligheidsfilters als het hoofddeel (niveau, apparatuur, locatie,
+   * pijnmelding), plus: de oefening moet geschikt zijn voor dit blok
+   * (`suitableBlocks`) en komt nergens anders in de training voor.
+   *
+   * Bewust simpel: geen score of herstelvoorkeur (deze oefeningen belasten
+   * niet en tellen niet mee voor progressie), gewoon vast op naam — zo
+   * krijgt de gebruiker een vertrouwde, voorspelbare warming-up. Is er voor
+   * een slot niets geschikt, dan valt die slot weg i.p.v. de hele training
+   * te blokkeren: de warming-up is een aanvulling, geen voorwaarde.
+   */
+  private async selectBlockItems(
+    userId: string,
+    block: 'WARMUP' | 'COOLDOWN',
+    selection: {
+      preferences: { location: TrainingLocation };
+      template: { slots: { block: WorkoutBlock; order: number; movementPattern: MovementPattern }[] };
+      allowedEquipment: ExerciseEquipment[];
+      allowedLevels: ExperienceLevel[];
+    },
+    usedExerciseIds: Set<string>,
+  ): Promise<WorkoutBlockItem[]> {
+    const durationSeconds = block === 'WARMUP' ? WARMUP_SECONDS_PER_EXERCISE : COOLDOWN_SECONDS_PER_EXERCISE;
+    const items: WorkoutBlockItem[] = [];
+    for (const slot of selection.template.slots.filter((s) => s.block === block)) {
+      const candidates = await this.prisma.exercise.findMany({
+        where: {
+          movementPattern: slot.movementPattern,
+          equipment: { in: selection.allowedEquipment },
+          level: { in: selection.allowedLevels },
+          location: { in: exerciseLocationsFor(selection.preferences.location) },
+          suitableBlocks: { has: block },
+        },
+        orderBy: { name: 'asc' },
+      });
+      const latestDecisionByExercise = await this.getLatestDecisions(
+        userId,
+        candidates.map((c) => c.id),
+      );
+      // Hier géén terugval op een pijnlijke oefening (anders dan het
+      // hoofddeel): liever een kortere warming-up dan een oefening die pijn deed.
+      const chosen = candidates.find(
+        (c) => !usedExerciseIds.has(c.id) && latestDecisionByExercise.get(c.id) !== 'REPLACE',
+      );
+      if (!chosen) continue;
+
+      usedExerciseIds.add(chosen.id);
+      items.push({
+        order: items.length,
+        movementPattern: slot.movementPattern,
+        durationSeconds,
+        exercise: this.toWorkoutExercise(chosen),
+      });
+    }
+    return items;
+  }
+
+  private toWorkoutExercise(exercise: Exercise): WorkoutExercise {
+    return {
+      id: exercise.id,
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup,
+      equipment: exercise.equipment,
+      level: exercise.level,
+      location: exercise.location,
+      imageKey: exercise.imageKey ?? null,
+    };
   }
 
   private allowedExerciseEquipment(userEquipment: Equipment[], location: TrainingLocation): ExerciseEquipment[] {

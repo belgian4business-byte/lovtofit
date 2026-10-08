@@ -163,6 +163,61 @@ describe('RuleGuardService', () => {
     expect(result.warnings.some((w) => w.startsWith('RG04'))).toBe(true);
   });
 
+  describe('warming-up en cooldown (Fase 12)', () => {
+    const blockItem = (overrides: Partial<typeof baseSlot.exercise> = {}, durationSeconds = 90) => ({
+      order: 0,
+      movementPattern: 'MOBILITY' as const,
+      durationSeconds,
+      exercise: { ...baseSlot.exercise, id: 'cat-cow', name: 'Cat-Cow', muscleGroup: 'MOBILITY', ...overrides },
+    });
+
+    it('laat een passende warming-up en cooldown door', () => {
+      const result = service.checkWorkout([baseSlot], { ...context(), blockItems: [blockItem()] });
+
+      expect(result.passed).toBe(true);
+    });
+
+    it('RG01-RG03 gelden ook voor warming-up en cooldown', () => {
+      const result = service.checkWorkout([baseSlot], {
+        ...context(),
+        blockItems: [
+          blockItem({ id: 'a', equipment: 'DUMBBELL' }),
+          blockItem({ id: 'b', equipment: 'TREADMILL' }),
+          blockItem({ id: 'c', location: 'OUTDOOR' }),
+          blockItem({ id: 'd', level: 'INTERMEDIATE' }),
+        ],
+      });
+
+      expect(result.passed).toBe(false);
+      const codes = result.violations.map((v) => v.slice(0, 4));
+      expect(codes).toEqual(expect.arrayContaining(['RG01', 'RG02', 'RG03']));
+    });
+
+    it('RG10: dezelfde oefening in warming-up en hoofddeel is een dubbel', () => {
+      const result = service.checkWorkout([baseSlot], {
+        ...context(),
+        blockItems: [blockItem({ id: baseSlot.exercise.id })],
+      });
+
+      expect(result.violations.some((v) => v.startsWith('RG10'))).toBe(true);
+    });
+
+    it('RG04: de duur van warming-up en cooldown telt mee', () => {
+      // 6 × 3 sets × 85 s ≈ 26 min: past in 30 min, met 5 min warming-up/cooldown niet meer.
+      const slots = Array.from({ length: 6 }, (_, i) => ({ ...baseSlot, order: i, exercise: { ...baseSlot.exercise, id: `ex-${i}` } }));
+      const items = [
+        blockItem({ id: 'w1' }, 90),
+        blockItem({ id: 'w2' }, 90),
+        blockItem({ id: 'c1' }, 60),
+        blockItem({ id: 'c2' }, 60),
+      ];
+      const ctx = context({ sessionDuration: 'MIN_30' as never });
+
+      expect(service.checkWorkout(slots, ctx).warnings.some((w) => w.startsWith('RG04'))).toBe(false);
+      expect(service.checkWorkout(slots, { ...ctx, blockItems: items }).warnings.some((w) => w.startsWith('RG04'))).toBe(true);
+    });
+  });
+
   describe('assertNoDuplicateSets (RG10)', () => {
     it('gooit een BadRequestException bij een dubbele set', () => {
       expect(() =>

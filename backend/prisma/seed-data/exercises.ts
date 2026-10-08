@@ -14,6 +14,7 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
  * core-rotatie, §8 cardio incl. "Fitness: Treadmill", §9 mobiliteit =
  * warming-up/cooldown). Totaal nu 35 — ruim binnen de MVP-grens.
  * `location` is standaard ANYWHERE; alleen hardlopen/sprints zijn OUTDOOR.
+ * `suitableBlocks` (Fase 12) is standaard [MAIN]: alleen het hoofddeel.
  * `imageKey` koppelt een oefening vast aan zijn foto
  * (lovtofit_<imageKey>_<variant>.webp); zonder imageKey toont de app een
  * placeholder. Reverse Lunge en Walking Lunge delen de foto "lunges" (een
@@ -60,9 +61,10 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   // Squat (isometrisch) — benen & billen
   { name: 'Wall Sit', muscleGroup: 'LEGS_GLUTES', movementPattern: 'SQUAT', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'wall_sit' },
 
-  // Cardio
-  { name: 'Jumping Jacks', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'jumping_jacks' },
-  { name: 'High Knees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'high_knees' },
+  // Cardio. Fase 12: alleen lichte, eenvoudige cardio mag in de warming-up
+  // (geen burpees, sprints of intervallen; trap vraagt een trap).
+  { name: 'Jumping Jacks', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['MAIN', 'WARMUP'], imageKey: 'jumping_jacks' },
+  { name: 'High Knees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['MAIN', 'WARMUP'], imageKey: 'high_knees' },
   { name: 'Mountain Climbers', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'mountain_climbers' },
   { name: 'Burpees', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', imageKey: 'burpees' },
   // Trap op en af: thuis of buiten, overal waar een trap is.
@@ -73,10 +75,11 @@ export const EXERCISES: Prisma.ExerciseCreateInput[] = [
   { name: 'Running Intervals', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'BEGINNER', location: 'OUTDOOR', imageKey: 'hardlopen_interval' },
   { name: 'Sprints', muscleGroup: 'CARDIO', movementPattern: 'CARDIO', equipment: 'BODYWEIGHT', level: 'INTERMEDIATE', location: 'OUTDOOR', imageKey: 'sprints' },
 
-  // Mobiliteit & herstel (warming-up, cooldown, rustdag — v0.5 §9)
-  { name: 'Cat-Cow', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'cat_cow' },
-  { name: 'Downward Dog', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'downward_dog' },
-  { name: 'Hip Circles', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'heupcirkels' },
-  { name: 'Standing Forward Fold', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'voorwaartse_stretch' },
-  { name: "World's Greatest Stretch", muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', imageKey: 'worlds_greatest_stretch' },
+  // Mobiliteit & herstel (warming-up, cooldown, rustdag — v0.5 §9).
+  // Fase 12: dynamisch (bewegen) → warming-up, rustig rekken → cooldown.
+  { name: 'Cat-Cow', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['WARMUP', 'COOLDOWN'], imageKey: 'cat_cow' },
+  { name: 'Downward Dog', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['COOLDOWN'], imageKey: 'downward_dog' },
+  { name: 'Hip Circles', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['WARMUP'], imageKey: 'heupcirkels' },
+  { name: 'Standing Forward Fold', muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['COOLDOWN'], imageKey: 'voorwaartse_stretch' },
+  { name: "World's Greatest Stretch", muscleGroup: 'MOBILITY', movementPattern: 'MOBILITY', equipment: 'BODYWEIGHT', level: 'BEGINNER', suitableBlocks: ['WARMUP'], imageKey: 'worlds_greatest_stretch' },
 ];

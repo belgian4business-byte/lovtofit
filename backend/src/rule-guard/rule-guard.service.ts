@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { TrainingPreferences } from '../generated/prisma/client.js';
 import type { ProgressionDecision, SessionDuration } from '../generated/prisma/enums.js';
-import type { TodaysWorkoutSlot } from '../decision-engine/decision-engine.service.js';
+import type {
+  TodaysWorkoutSlot,
+  WorkoutBlockItem,
+  WorkoutExercise,
+} from '../decision-engine/decision-engine.service.js';
 import type { RecoveryStatus } from '../recovery-engine/recovery-engine.service.js';
 import type { WeekSchedule } from '../schedule/week-schedule.js';
 
@@ -18,6 +22,13 @@ export interface RuleGuardContext {
   timeLimit?: { minutes: number; restSeconds: number };
   /** Rust per set bij een normale training (Light Session: langer). Standaard 45 s. */
   restSeconds?: number;
+  /**
+   * Fase 12: warming-up- en cooldown-oefeningen. Dezelfde harde controles
+   * op materiaal, locatie en niveau (RG01-RG03) en dubbels (RG10), en hun
+   * duur telt mee in RG04. Geen repsdoel (RG06) en geen volume (RG07): ze
+   * gaan op tijd en belasten niet.
+   */
+  blockItems?: WorkoutBlockItem[];
 }
 
 export interface RuleGuardResult {
@@ -83,36 +94,13 @@ export class RuleGuardService {
     const violations: string[] = [];
     const warnings: string[] = [];
 
-    const allowedEquipment = new Set(['BODYWEIGHT', ...this.gymEquipmentFor(context.preferences)]);
-    const allowedLevels = new Set(ALLOWED_LEVELS[context.preferences.level] ?? []);
+    const blockItems = context.blockItems ?? [];
+
+    for (const item of [...slots, ...blockItems]) {
+      this.checkExerciseFitsUser(item.exercise, context, violations);
+    }
 
     for (const slot of slots) {
-      // RG01 — Equipment: mag de gebruiker deze apparatuur gebruiken?
-      if (!allowedEquipment.has(slot.exercise.equipment)) {
-        violations.push(
-          `RG01: "${slot.exercise.name}" vereist ${slot.exercise.equipment}, niet beschikbaar voor deze gebruiker.`,
-        );
-      }
-
-      // RG02 — Location: gym-apparaten (kabel/machine, loopband) alleen voor
-      // wie (ook) in de fitness traint; buitenoefeningen alleen buiten.
-      const trainsInGym = context.preferences.location === 'GYM' || context.preferences.location === 'BOTH';
-      if (!trainsInGym && (slot.exercise.equipment === 'MACHINE_CABLE' || slot.exercise.equipment === 'TREADMILL')) {
-        violations.push(
-          `RG02: "${slot.exercise.name}" is gym-apparatuur, gebruiker traint niet in de fitness (${context.preferences.location}).`,
-        );
-      }
-      if (slot.exercise.location === 'OUTDOOR' && context.preferences.location !== 'OUTDOOR') {
-        violations.push(`RG02: "${slot.exercise.name}" kan alleen buiten, gebruiker traint niet buiten.`);
-      }
-
-      // RG03 — Level: nooit boven het toegestane niveau.
-      if (!allowedLevels.has(slot.exercise.level)) {
-        violations.push(
-          `RG03: "${slot.exercise.name}" (${slot.exercise.level}) ligt boven het niveau van de gebruiker.`,
-        );
-      }
-
       // RG06 — Progression: geen absurde sprongen (reps altijd binnen een
       // kleine, vaste bandbreedte — zie Decision Engine repsFor()).
       if (slot.targetReps < 6 || slot.targetReps > 20) {
@@ -152,8 +140,9 @@ export class RuleGuardService {
       violations.push('RG08/RG11: workout bevat geen enkele trainingscomponent.');
     }
 
-    // RG10 — Duplicate: geen dubbele oefeningen binnen dezelfde workout.
-    const exerciseIds = slots.map((s) => s.exercise.id);
+    // RG10 — Duplicate: geen dubbele oefeningen binnen dezelfde workout
+    // (ook niet tussen warming-up, hoofddeel en cooldown).
+    const exerciseIds = [...slots, ...blockItems].map((s) => s.exercise.id);
     if (new Set(exerciseIds).size !== exerciseIds.length) {
       violations.push('RG10: dezelfde oefening komt dubbel voor in de workout.');
     }
@@ -170,8 +159,9 @@ export class RuleGuardService {
     } else {
       // Normale training: de gebruiker kan zelf voor een Quick Session
       // kiezen, dus melden we een mismatch enkel.
+      const blockSeconds = blockItems.reduce((sum, item) => sum + item.durationSeconds, 0);
       const estimatedMinutes = Math.round(
-        estimateWorkoutSeconds(totalSets, context.restSeconds ?? NORMAL_REST_SECONDS) / 60,
+        (estimateWorkoutSeconds(totalSets, context.restSeconds ?? NORMAL_REST_SECONDS) + blockSeconds) / 60,
       );
       const availableMinutes = SESSION_DURATION_MINUTES[context.preferences.sessionDuration];
       if (estimatedMinutes > availableMinutes) {
@@ -245,6 +235,34 @@ export class RuleGuardService {
         );
       }
       seen.add(key);
+    }
+  }
+
+  /** RG01-RG03: past deze oefening bij het materiaal, de locatie en het niveau? */
+  private checkExerciseFitsUser(exercise: WorkoutExercise, context: RuleGuardContext, violations: string[]): void {
+    const allowedEquipment = new Set(['BODYWEIGHT', ...this.gymEquipmentFor(context.preferences)]);
+    const allowedLevels = new Set(ALLOWED_LEVELS[context.preferences.level] ?? []);
+
+    // RG01 — Equipment: mag de gebruiker deze apparatuur gebruiken?
+    if (!allowedEquipment.has(exercise.equipment)) {
+      violations.push(`RG01: "${exercise.name}" vereist ${exercise.equipment}, niet beschikbaar voor deze gebruiker.`);
+    }
+
+    // RG02 — Location: gym-apparaten (kabel/machine, loopband) alleen voor
+    // wie (ook) in de fitness traint; buitenoefeningen alleen buiten.
+    const trainsInGym = context.preferences.location === 'GYM' || context.preferences.location === 'BOTH';
+    if (!trainsInGym && (exercise.equipment === 'MACHINE_CABLE' || exercise.equipment === 'TREADMILL')) {
+      violations.push(
+        `RG02: "${exercise.name}" is gym-apparatuur, gebruiker traint niet in de fitness (${context.preferences.location}).`,
+      );
+    }
+    if (exercise.location === 'OUTDOOR' && context.preferences.location !== 'OUTDOOR') {
+      violations.push(`RG02: "${exercise.name}" kan alleen buiten, gebruiker traint niet buiten.`);
+    }
+
+    // RG03 — Level: nooit boven het toegestane niveau.
+    if (!allowedLevels.has(exercise.level)) {
+      violations.push(`RG03: "${exercise.name}" (${exercise.level}) ligt boven het niveau van de gebruiker.`);
     }
   }
 
