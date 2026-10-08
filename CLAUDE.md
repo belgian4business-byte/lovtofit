@@ -1008,6 +1008,54 @@ recepten komt nooit in de app. Premium opent alle recepten meteen, ook
 direct na het starten van de proefperiode. Een open recept toont
 ingrediënten en bereiding op een eigen scherm.
 
+### FASE 12 — Warming-up & cooldown (gratis)
+Doel: elke training krijgt een warming-up vooraf en een cooldown na afloop, met de bestaande cardio-/mobiliteitsoefeningen. Gratis voor iedereen. Veilig: alles blijft binnen Decision Engine + Rule Guard. Eén stap per keer.
+Keuzes gebruiker: 2 oefeningen per blok; elk blok is overslaanbaar met één knop.
+
+Voortgang Fase 12:
+1. (klaar) Template met blokken. Enum `WorkoutBlock` (WARMUP / MAIN /
+   COOLDOWN) en veld `TemplateSlot.block` (standaard MAIN; migratie
+   `add_template_slot_block`). `order` telt per blok vanaf 0 (unieke
+   sleutel templateId + block + order), zodat de 5 krachtslots hun
+   nummers houden. Seed `templates.ts`: warming-up = CARDIO + MOBILITY,
+   hoofddeel = SQUAT, PUSH, PULL, HINGE, CORE_STABILITY, cooldown =
+   2× MOBILITY.
+2. (klaar) Oefeningkeuze. Veld `Exercise.suitableBlocks` (standaard
+   [MAIN]; migratie `add_exercise_suitable_blocks`): High Knees en
+   Jumping Jacks → ook WARMUP; Cat-Cow → WARMUP + COOLDOWN; Hip Circles
+   en World's Greatest Stretch → WARMUP; Downward Dog en Standing Forward
+   Fold → COOLDOWN. Burpees, Mountain Climbers, Stair Climbs (vraagt een
+   trap), intervallen en sprints nooit in de warming-up. `GET
+   /workouts/today` geeft `warmup` en `cooldown` naast `slots`, op tijd
+   i.p.v. sets × reps: 2 × 90 s en 2 × 60 s (blueprint v0.5 §3:
+   "Warming-up — 3 min … Cooldown — 2 min"). Zelfde harde filters als het
+   hoofddeel (niveau, materiaal, locatie), vaste keuze op naam (vertrouwde
+   warming-up), nooit dezelfde oefening twee keer in één training, en een
+   oefening na een pijnmelding wordt overgeslagen zonder terugval: is er
+   niets veiligs, dan valt die slot weg en gaat de training door. Ook bij
+   een Light Session; een Quick Session krijgt ze bewust niet (open punt
+   5). Het hoofddeel vraagt alleen MAIN-oefeningen. Rule Guard: RG01-RG03
+   en RG10 gelden ook voor deze blokken, hun duur telt mee in RG04; geen
+   RG06/RG07 (geen reps, geen belasting).
+3. (klaar) App-flow. Train-tab: de kaart toont de kopjes WARMING-UP · 3
+   min / TRAINING / COOLDOWN · 2 min. Workout-scherm: eerst de
+   warming-up, per oefening foto, "WARMING-UP · 1 van 2", naam en een
+   aftellende timer (bij 0 vanzelf door), "Klaar →" (volgende) en
+   "Overslaan" (hele blok). Na de laatste krachtoefening heet de knop
+   "Naar de cooldown →", daarna de cooldown op dezelfde manier. Warming-up
+   en cooldown worden niet gelogd en vragen geen feedback. De sessie wordt
+   al opgeslagen zodra het hoofddeel klaar is: een overgeslagen of
+   afgebroken cooldown kost niets. Getest dat "Klaar →" en "Overslaan"
+   ook op 360×640 zonder scrollen in beeld staan.
+4. (klaar) Getest op de telefoon (CPH2247).
+
+Bewezen: elke normale training heeft nu een warming-up van 3 minuten en
+een cooldown van 2 minuten, gekozen door de Decision Engine met dezelfde
+veiligheidsregels als het hoofddeel en gecontroleerd door de Rule Guard.
+De mobiliteitsoefeningen en de lichte cardio worden daardoor voor het
+eerst ingepland. De gebruiker houdt de controle: elk blok is met één tik
+over te slaan, zonder dat de training daardoor verloren gaat.
+
 ## Oefeningenbibliotheek & foto's (lopend)
 Doel: de oefening-foto's (frontend/assets/exercises/, 26 oefeningen × man/
 vrouw/duo) in de app tonen. In stappen.
@@ -1061,21 +1109,15 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
-## Huidige fase: FASE 12 — Warming-up & cooldown (gratis)
-Doel: elke training krijgt een warming-up vooraf en een cooldown na afloop, met de bestaande cardio-/mobiliteitsoefeningen (die staan al in de database met foto's maar worden nog niet ingepland). Gratis voor iedereen. Veilig: alles blijft binnen Decision Engine + Rule Guard. Eén stap per keer.
-Stappen (voorstel, morgen verfijnen):
-1. Backend: template uitbreiden met een warming-up-blok (mobiliteit/lichte cardio) vooraan en een cooldown-blok (stretches) achteraan, rond de bestaande 5 krachtslots.
-2. Backend: de juiste oefeningen kiezen voor die blokken (passend bij locatie/apparatuur), via de bestaande engines + Rule Guard.
-3. Flutter: warming-up en cooldown tonen in de trainingsflow, visueel onderscheiden van het hoofddeel.
-4. Testen op telefoon.
-Open punt voor morgen: lengte van warming-up/cooldown (bv. 2-3 oefeningen elk), en of ze overslaanbaar zijn.
-
 ## Openstaande punten (later oppakken)
-1. **Cardio en mobiliteit worden nog niet ingepland.** Het enige template
-   heeft alleen de slots SQUAT, PUSH, PULL, HINGE en CORE_STABILITY, dus de
-   cardio-oefeningen, de 5 mobiliteitsoefeningen en Bicycle Crunches
-   (ROTATION) worden nooit gekozen. Nodig: een warming-up/cooldown of een
-   cardio-blok in de templates (blueprint v0.5 §8-9, v0.6).
+1. **Zware cardio wordt nog niet ingepland.** Sinds Fase 12 komen de 5
+   mobiliteitsoefeningen en de lichte cardio (High Knees, Jumping Jacks)
+   wél in de training, als warming-up en cooldown. Nog nooit gekozen:
+   Mountain Climbers, Burpees, Stair Climbs, Treadmill Intervals, Running
+   Intervals, Sprints en Bicycle Crunches (ROTATION). Nodig: een
+   cardio-blok in het template, bv. voor afvallen ("5 min warming-up →
+   15 min kracht → 10 min cardio → 2 min cooldown", blueprint v0.6), en
+   oefeningen op tijd (open punt 3).
 2. **"Buiten" is nog niet kiesbaar.** De backend kent trainingslocatie
    `OUTDOOR`, maar de onboarding (`frontend/lib/onboarding_flow.dart`)
    biedt alleen Thuis/Fitness/Beide. Running Intervals en Sprints krijgt
