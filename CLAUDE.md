@@ -1056,6 +1056,40 @@ De mobiliteitsoefeningen en de lichte cardio worden daardoor voor het
 eerst ingepland. De gebruiker houdt de controle: elk blok is met één tik
 over te slaan, zonder dat de training daardoor verloren gaat.
 
+### FASE 13 — "Buiten" kiesbaar maken
+Doel: de locatie "Buiten" (OUTDOOR, bestond al in de backend) als keuze aanbieden, zodat buiten-gebruikers een passende training krijgen. Lost open punt 2 op. Gratis. Eén stap per keer.
+
+Voortgang Fase 13:
+1. (klaar) Onboarding: "🌳 Buiten" als vierde locatie-keuze naast Thuis,
+   Fitness en Beide. Backend ongewijzigd (`POST /onboarding` accepteerde
+   `OUTDOOR` al).
+2. (klaar) Profiel: "🌳 Buiten" staat nu in de gedeelde `locationOptions`
+   (`lib/profile_options.dart`), dus onboarding en "Profiel aanpassen"
+   tonen dezelfde 4 keuzes. De tijdelijke uitzonderingen
+   (`extraLocationLabels`, alleen-tonen-voor-wie-het-al-heeft) zijn weg.
+3. (klaar) Engine-check, live met 4 buiten-accounts (volledige gym
+   beginner/gevorderd, geen materiaal, eigen dumbbells). Gevonden en
+   opgelost: met Buiten + "Volledige fitnessapparatuur" kreeg de
+   gebruiker nog dumbbell-oefeningen. Nu levert FULL_GYM bij locatie
+   OUTDOOR niets op, in de Decision Engine (filter) én de Rule Guard
+   (RG01); eigen dumbbells (DUMBBELLS) mogen wel mee naar buiten. Thuis +
+   volledige gym is ongewijzigd (open punt 4). Warming-up en cooldown
+   zijn buiten bodyweight (High Knees, Cat-Cow / Downward Dog, Standing
+   Forward Fold). Drie observaties als open punten 7-9.
+4. (klaar) Getest op de telefoon (CPH2247) met `buiten-gym-beginner` en
+   `buiten-dumbbells`.
+
+Testaccounts (wachtwoord `testtest123`): `buiten-gym-beginner@example.com`,
+`buiten-gym-gevorderd@example.com`, `buiten-geen@example.com`,
+`buiten-dumbbells@example.com`.
+
+Bewezen: een gebruiker kan "Buiten" kiezen in de onboarding en op het
+profiel, en krijgt dan een veilige training zonder gym-materiaal:
+"volledige fitnessapparatuur" telt buiten niet, eigen dumbbells wel. De
+Rule Guard controleert dat onafhankelijk. Buiten-oefeningen (intervallen,
+sprints) worden nog niet ingepland: dat wacht op een cardio-blok (open
+punt 1).
+
 ## Oefeningenbibliotheek & foto's (lopend)
 Doel: de oefening-foto's (frontend/assets/exercises/, 26 oefeningen × man/
 vrouw/duo) in de app tonen. In stappen.
@@ -1109,14 +1143,6 @@ vrouw/duo) in de app tonen. In stappen.
    bibliotheek. De placeholder blijft bestaan voor toekomstige oefeningen
    zonder foto. De foto `bankdrukken` (halterstang) is niet gekoppeld.
 
-## Huidige fase: FASE 13 — "Buiten" kiesbaar maken
-Doel: de locatie "Buiten" (OUTDOOR, bestaat al in de backend) toevoegen als keuze, zodat buiten-oefeningen (hardlopen-intervallen, sprints) ingepland kunnen worden. Lost open punt 2 op. Gratis. Eén stap per keer.
-Stappen:
-1. Onboarding: "Buiten" toevoegen als locatie-keuze (naast Thuis/Fitness/Beide), met het bestaande label "🌳 Buiten".
-2. Profiel aanpassen: "Buiten" ook daar kiesbaar maken (label bestaat al).
-3. Controleren dat de Decision Engine + Rule Guard een buiten-gebruiker een zinnige training geven (buiten-oefeningen worden gekozen, gym-materiaal uitgesloten) — en dat warming-up/cooldown ook buiten kloppen.
-4. Testen met een buiten-account.
-
 ## Openstaande punten (later oppakken)
 1. **Zware cardio wordt nog niet ingepland.** Sinds Fase 12 komen de 5
    mobiliteitsoefeningen en de lichte cardio (High Knees, Jumping Jacks)
@@ -1126,23 +1152,19 @@ Stappen:
    cardio-blok in het template, bv. voor afvallen ("5 min warming-up →
    15 min kracht → 10 min cardio → 2 min cooldown", blueprint v0.6), en
    oefeningen op tijd (open punt 3).
-2. **"Buiten" is nog niet kiesbaar.** De backend kent trainingslocatie
-   `OUTDOOR`, maar de onboarding (`frontend/lib/onboarding_flow.dart`)
-   biedt alleen Thuis/Fitness/Beide. Running Intervals en Sprints krijgt
-   dus nog niemand. Nodig: een keuze "🌳 Buiten" in onboarding/instellingen
-   (of een "vandaag train ik buiten"-optie).
+2. ~~**"Buiten" is nog niet kiesbaar.**~~ Opgelost in Fase 13.
 3. **Oefeningen op tijd bestaan nog niet.** Plank, Side Plank, Wall Sit en
    de intervallen zijn eigenlijk op tijd (seconden, of werk/rust × rondes,
    blueprint v0.5 §8), maar de app kent alleen sets × reps (6-20, RG06).
    Nodig: een oefeningtype "tijd" in datamodel, Decision Engine, Rule Guard
    en het workout-scherm.
-4. **Engine-filtering veranderd bij Thuis + "volledige gym".** Een
-   gebruiker met locatie HOME (of OUTDOOR) die FULL_GYM als materiaal
-   aanvinkt, krijgt nu nooit meer kabel-/machine-oefeningen of de
-   loopband: de Decision Engine filtert ze vooraf weg (vroeger kon de
-   engine er één kiezen en blokkeerde de Rule Guard daarna de hele
-   workout). Nog te bevestigen of dit het gewenste gedrag is, en of de
-   onboarding die combinatie nog moet toelaten.
+4. **Engine-filtering bij Thuis + "volledige gym".** Een gebruiker met
+   locatie HOME die FULL_GYM als materiaal aanvinkt, krijgt nooit
+   kabel-/machine-oefeningen of de loopband (de Decision Engine filtert ze
+   vooraf weg), maar wel dumbbell-oefeningen. Nog te bevestigen of dit het
+   gewenste gedrag is (een thuisgym kan bestaan), en of de onboarding die
+   combinatie nog moet toelaten. Buiten is sinds Fase 13 beslist:
+   FULL_GYM telt daar niet.
 5. **Quick Session heeft geen warming-up of cooldown (Fase 12).** Bij
    10-15 min telt elke minuut ("geen lange warming-up", blueprint v2.0
    test 03), dus `getQuickSession` voegt ze bewust niet toe. Blueprint
